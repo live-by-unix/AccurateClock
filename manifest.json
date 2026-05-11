@@ -1,7 +1,14 @@
 {
   "short_name": "AccurateClock",
   "name": "Accurate Clock: High-Performance Time",
-  "description": "A minimalist, ad-free atomic clock with nanosecond precision. Auto-adjusts to local time using edge computing. High performance",
+  "description": "A minimalist, ad-free atomic clock with nanosecond precision. Built for extreme accuracy and offline reliability, all while being speedy.",
+  "id": "/?source=pwa",
+  "start_url": "/",
+  "display": "standalone",
+  "scope": "/",
+  "theme_color": "#121212",
+  "background_color": "#121212",
+  "orientation": "portrait-primary",
   "icons": [
     {
       "src": "icon-192.png",
@@ -18,17 +25,18 @@
   ],
   "screenshots": [
     {
-      "src": "screenshot.png",
+      "src": "screenshot-desktop.png",
       "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide",
-      "label": "AccurateClock Desktop"
+      "label": "AccurateClock Desktop View"
+    },
+    {
+      "src": "screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "AccurateClock Mobile View"
     }
-  ],
-  "start_url": "/",
-  "background_color": "#F4F4F4",
-  "display": "standalone",
-  "scope": "/",
-  "theme_color": "#121212",
-  "orientation": "portrait-primary"
+  ]
 }
