@@ -1,24 +1,34 @@
 {
   "short_name": "AccurateClock",
   "name": "Accurate Clock: High-Performance Time",
-  "description": "The world's most accurate, VPN-proof local clock. All free, no bloat, and PWA-able. ",
+  "description": "A minimalist, ad-free atomic clock with nanosecond precision. Auto-adjusts to local time using edge computing. High performance",
   "icons": [
     {
       "src": "icon-192.png",
       "type": "image/png",
-      "sizes": "192x192"
+      "sizes": "192x192",
+      "purpose": "any"
     },
     {
       "src": "icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
-      "purpose": "any maskable"
+      "purpose": "any"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "screenshot.png",
+      "sizes": "1280x720",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "AccurateClock Desktop"
     }
   ],
   "start_url": "/",
-  "background_color": "#000000",
+  "background_color": "#F4F4F4",
   "display": "standalone",
   "scope": "/",
-  "theme_color": "#000000",
+  "theme_color": "#121212",
   "orientation": "portrait-primary"
 }
