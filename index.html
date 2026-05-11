@@ -157,8 +157,17 @@
     // CONFIG
     // ============================================
 
-    
     const WORKER_URL = "https://accurateclock.live-by-unix.workers.dev/";
+
+    // ============================================
+    // SERVICE WORKER REGISTRATION
+    // ============================================
+
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+      });
+    }
 
     // ============================================
     // FAVICON
