@@ -38,15 +38,8 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family:
-        Inter,
-        Helvetica Neue,
-        Helvetica,
-        Arial,
-        sans-serif;
-      transition:
-        background 0.3s ease,
-        color 0.3s ease;
+      font-family: Inter, Helvetica Neue, Helvetica, Arial, sans-serif;
+      transition: background 0.3s ease, color 0.3s ease;
     }
 
     body {
@@ -67,9 +60,7 @@
       color: var(--text);
       font-size: 20px;
       cursor: pointer;
-      transition:
-        background 0.2s ease,
-        transform 0.2s ease;
+      transition: background 0.2s ease, transform 0.2s ease;
     }
 
     .theme-toggle:hover {
@@ -102,13 +93,7 @@
       line-height: 1;
       letter-spacing: -0.03em;
       font-variant-numeric: tabular-nums;
-      font-family:
-        SFMono-Regular,
-        ui-monospace,
-        Menlo,
-        Monaco,
-        Consolas,
-        monospace;
+      font-family: SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
       white-space: nowrap;
     }
 
@@ -127,7 +112,6 @@
         flex-direction: column;
         gap: 40px;
       }
-
       canvas {
         width: 180px;
         height: 180px;
@@ -140,372 +124,133 @@
 
   <main class="wrapper">
     <div class="clock-block">
-      <div class="date-row" id="dateRow">
-        ---- -- --
-      </div>
-
-      <div class="time-row" id="timeRow">
-        --:--:--.--- <span class="subnano">000000</span>
-      </div>
+      <div class="date-row" id="dateRow">---- -- --</div>
+      <div class="time-row" id="timeRow">--:--:--.--- <span class="subnano">000000</span></div>
     </div>
-
     <canvas id="analogClock" width="240" height="240"></canvas>
   </main>
 
   <script>
     const WORKER_URL = "https://accurateclock.live-by-unix.workers.dev/";
+    const dateRow = document.getElementById("dateRow");
+    const timeRow = document.getElementById("timeRow");
+    const canvas = document.getElementById("analogClock");
+    const ctx = canvas.getContext("2d");
+    const toggle = document.getElementById("themeToggle");
+
+    let serverOffset = 0;
+    let visualOffset = 0;
+    let samples = [];
+    let isInitialSync = true;
+    const basePerf = performance.now();
+    const baseEpoch = Date.now();
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js");
+        navigator.serviceWorker.register("/sw.js").catch(()=>{});
       });
     }
 
-    (() => {
-      const svg = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64">
-          <rect width="100%" height="100%" rx="14" fill="#121212"/>
-          <circle cx="32" cy="32" r="22" fill="none" stroke="#F4F4F4" stroke-width="3"/>
-          <line x1="32" y1="32" x2="32" y2="18" stroke="#F4F4F4" stroke-width="3" stroke-linecap="round"/>
-          <line x1="32" y1="32" x2="42" y2="36" stroke="#F4F4F4" stroke-width="3" stroke-linecap="round"/>
-        </svg>
-      `;
-
-      const favicon = document.createElement("link");
-
-      favicon.rel = "icon";
-
-      favicon.href =
-        "data:image/svg+xml;charset=UTF-8," +
-        encodeURIComponent(svg);
-
-      document.head.appendChild(favicon);
-    })();
-
-    const toggle = document.getElementById("themeToggle");
-
     function applyTheme(theme) {
       document.body.classList.toggle("dark", theme === "dark");
-
-      toggle.textContent =
-        theme === "dark"
-          ? "☀"
-          : "☾";
-
-      localStorage.setItem(
-        "accurateclock-theme",
-        theme
-      );
+      toggle.textContent = theme === "dark" ? "☀" : "☾";
+      localStorage.setItem("accurateclock-theme", theme);
     }
 
-    const savedTheme =
-      localStorage.getItem("accurateclock-theme") ||
-      (
-        window.matchMedia("(prefers-color-scheme: dark)").matches
-          ? "dark"
-          : "light"
-      );
-
+    const savedTheme = localStorage.getItem("accurateclock-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
     applyTheme(savedTheme);
-
-    toggle.addEventListener("click", () => {
-      const next =
-        document.body.classList.contains("dark")
-          ? "light"
-          : "dark";
-
-      applyTheme(next);
-    });
-
-    const dateRow =
-      document.getElementById("dateRow");
-
-    const timeRow =
-      document.getElementById("timeRow");
-
-    let baseEpoch = Date.now();
-    let basePerf = performance.now();
-
-    let drift = 0;
-
-    let driftSamples = [];
+    toggle.addEventListener("click", () => applyTheme(document.body.classList.contains("dark") ? "light" : "dark"));
 
     async function syncClock() {
       try {
-        const samples = [];
-
-        for (let i = 0; i < 7; i++) {
+        const batch = [];
+        for (let i = 0; i < 8; i++) {
           const t0 = performance.now();
-
-          const response = await fetch(
-            `${WORKER_URL}?_=${Date.now()}_${i}`,
-            {
-              cache: "no-store"
-            }
-          );
-
+          const r = await fetch(`${WORKER_URL}?_=${t0}-${i}`, { cache: "no-store" });
+          const d = await r.json();
           const t1 = performance.now();
-
-          const data = await response.json();
-
           const rtt = t1 - t0;
-
-          samples.push({
-            epoch: data.epoch,
-            midpoint: (t0 + t1) / 2,
-            rtt
-          });
+          batch.push({ offset: d.epoch - (t0 + rtt / 2), rtt });
         }
+        batch.sort((a, b) => a.rtt - b.rtt);
+        const best = batch[0];
+        samples.push(best);
+        if (samples.length > 20) samples.shift();
+        
+        const weights = samples.reduce((a, b) => a + (1 / Math.max(b.rtt, 0.1)), 0);
+        serverOffset = samples.reduce((a, b) => a + (b.offset * (1 / Math.max(b.rtt, 0.1))), 0) / weights;
 
-        samples.sort((a, b) => a.rtt - b.rtt);
-
-        const best = samples[0];
-
-        const predictedEpoch =
-          best.epoch +
-          (performance.now() - best.midpoint);
-
-        const currentEstimate =
-          baseEpoch +
-          (performance.now() - basePerf);
-
-        const offset =
-          predictedEpoch - currentEstimate;
-
-        driftSamples.push(offset);
-
-        if (driftSamples.length > 10) {
-          driftSamples.shift();
+        if (isInitialSync) {
+          visualOffset = serverOffset;
+          isInitialSync = false;
         }
-
-        drift =
-          driftSamples.reduce((a, b) => a + b, 0) /
-          driftSamples.length;
-
-        baseEpoch =
-          predictedEpoch - drift;
-
-        basePerf = performance.now();
-
-        console.log(
-          `Synced | RTT ${best.rtt.toFixed(2)}ms | Drift ${drift.toFixed(4)}ms`
-        );
-      } catch (err) {
-        console.error("Clock sync failed:", err);
-      }
+      } catch (e) {}
     }
 
-    syncClock();
-
-    setInterval(syncClock, 5000);
-
-    const canvas =
-      document.getElementById("analogClock");
-
-    const ctx =
-      canvas.getContext("2d");
-
-    function drawAnalog(now) {
-      const w = canvas.width;
-      const h = canvas.height;
-      const r = w / 2;
-
-      ctx.clearRect(0, 0, w, h);
-
+    function drawHand(angle, length, width, color) {
       ctx.save();
-
-      ctx.translate(r, r);
-
-      const styles =
-        getComputedStyle(document.body);
-
-      const fg =
-        styles.getPropertyValue("--text").trim();
-
-      const border =
-        styles.getPropertyValue("--border").trim();
-
+      ctx.rotate(angle);
       ctx.beginPath();
-
-      ctx.arc(
-        0,
-        0,
-        r - 4,
-        0,
-        Math.PI * 2
-      );
-
-      ctx.strokeStyle = border;
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
-      for (let i = 0; i < 12; i++) {
-        const angle =
-          (Math.PI / 6) * i;
-
-        const x1 =
-          Math.cos(angle) * (r - 24);
-
-        const y1 =
-          Math.sin(angle) * (r - 24);
-
-        const x2 =
-          Math.cos(angle) * (r - 14);
-
-        const y2 =
-          Math.sin(angle) * (r - 14);
-
-        ctx.beginPath();
-
-        ctx.moveTo(x1, y1);
-
-        ctx.lineTo(x2, y2);
-
-        ctx.strokeStyle = fg;
-        ctx.lineWidth = 2;
-        ctx.stroke();
-      }
-
-      const ms =
-        now.getMilliseconds();
-
-      const seconds =
-        now.getSeconds() +
-        ms / 1000;
-
-      const minutes =
-        now.getMinutes() +
-        seconds / 60;
-
-      const hours =
-        (now.getHours() % 12) +
-        minutes / 60;
-
-      drawHand(
-        (Math.PI / 6) * hours,
-        r * 0.5,
-        5,
-        fg
-      );
-
-      drawHand(
-        (Math.PI / 30) * minutes,
-        r * 0.72,
-        3,
-        fg
-      );
-
-      drawHand(
-        (Math.PI / 30) * seconds,
-        r * 0.82,
-        1.5,
-        "#E74C3C"
-      );
-
-      ctx.beginPath();
-
-      ctx.arc(
-        0,
-        0,
-        5,
-        0,
-        Math.PI * 2
-      );
-
-      ctx.fillStyle = fg;
-      ctx.fill();
-
-      ctx.restore();
-    }
-
-    function drawHand(
-      angle,
-      length,
-      width,
-      color
-    ) {
-      ctx.save();
-
-      ctx.rotate(angle - Math.PI / 2);
-
-      ctx.beginPath();
-
-      ctx.moveTo(-10, 0);
-
-      ctx.lineTo(length, 0);
-
+      ctx.moveTo(0, 15);
+      ctx.lineTo(0, -length);
       ctx.strokeStyle = color;
       ctx.lineWidth = width;
       ctx.lineCap = "round";
       ctx.stroke();
-
       ctx.restore();
     }
 
     function render() {
-      const nowPerf =
-        performance.now();
+      const p = performance.now();
+      visualOffset += (serverOffset - visualOffset) * 0.015;
+      const t = baseEpoch + (p - basePerf) + visualOffset;
+      const d = new Date(t);
 
-      const preciseEpoch =
-        baseEpoch +
-        (nowPerf - basePerf);
+      dateRow.textContent = `${d.getFullYear()} ${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getDate()).padStart(2, "0")}`;
+      timeRow.innerHTML = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")} <span class="subnano">${Math.floor((t % 1) * 1000000).toString().padStart(6, "0")}</span>`;
 
-      const now =
-        new Date(preciseEpoch);
+      const r = canvas.width / 2;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(r, r);
+      const s = getComputedStyle(document.body);
+      const fg = s.getPropertyValue("--text").trim();
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, r - 8, 0, Math.PI * 2);
+      ctx.strokeStyle = s.getPropertyValue("--border").trim();
+      ctx.lineWidth = 2;
+      ctx.stroke();
 
-      const year =
-        now.getFullYear();
+      ctx.strokeStyle = fg;
+      for (let i = 0; i < 12; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, -r + 15);
+        ctx.lineTo(0, -r + 25);
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.rotate(Math.PI / 6);
+      }
 
-      const month =
-        String(
-          now.getMonth() + 1
-        ).padStart(2, "0");
+      const sec = d.getSeconds() + d.getMilliseconds() / 1000;
+      const min = d.getMinutes() + sec / 60;
+      const hor = (d.getHours() % 12) + min / 60;
 
-      const day =
-        String(
-          now.getDate()
-        ).padStart(2, "0");
+      drawHand(hor * (Math.PI / 6), r * 0.45, 6, fg);
+      drawHand(min * (Math.PI / 30), r * 0.70, 4, fg);
+      drawHand(sec * (Math.PI / 30), r * 0.85, 2, "#E74C3C");
 
-      const hour =
-        String(
-          now.getHours()
-        ).padStart(2, "0");
-
-      const minute =
-        String(
-          now.getMinutes()
-        ).padStart(2, "0");
-
-      const second =
-        String(
-          now.getSeconds()
-        ).padStart(2, "0");
-
-      const milli =
-        String(
-          now.getMilliseconds()
-        ).padStart(3, "0");
-
-      const nanos =
-        Math.floor(
-          (preciseEpoch % 1) *
-          1_000_000
-        )
-          .toString()
-          .padStart(6, "0");
-
-      dateRow.textContent =
-        `${year} ${month} ${day}`;
-
-      timeRow.innerHTML =
-        `${hour}:${minute}:${second}.${milli} ` +
-        `<span class="subnano">${nanos}</span>`;
-
-      drawAnalog(now);
+      ctx.beginPath();
+      ctx.arc(0, 0, 4, 0, Math.PI * 2);
+      ctx.fillStyle = fg;
+      ctx.fill();
+      ctx.restore();
 
       requestAnimationFrame(render);
     }
 
+    syncClock();
+    setInterval(syncClock, 5000);
     requestAnimationFrame(render);
   </script>
 </body>
