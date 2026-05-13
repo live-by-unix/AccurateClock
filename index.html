@@ -42,7 +42,6 @@
     .subnano { font-size: 0.4em; opacity: 0.6; }
     canvas { width: 220px; height: 220px; }
 
-    /* Hidden Menu System */
     #tzMenu {
       position: fixed; bottom: 0; left: 0; width: 100%; height: 70%;
       background: var(--bg); border-top: 1px solid var(--border);
@@ -85,7 +84,7 @@
   </main>
 
   <div id="tzMenu">
-    <input type="text" id="tzSearch" placeholder="Search timezone...">
+    <input type="text" id="tzSearch" placeholder="Search GMT offset (e.g. GMT+5)...">
     <div id="tzList"></div>
     <button onclick="toggleMenu()" style="width:100%; padding: 15px; margin-top: 10px; cursor: pointer;">Close</button>
   </div>
@@ -141,19 +140,28 @@
 
     function toggleMenu() { document.getElementById('tzMenu').classList.toggle('open'); }
     
-    const allTimezones = Intl.supportedValuesOf('timeZone');
+    // Generate GMT Timezones
+    const allTimezones = [];
+    for(let i = -12; i <= 14; i++) {
+        const sign = i >= 0 ? "+" : "-";
+        const val = Math.abs(i);
+        const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`; // IANA uses inverted signs for Etc/GMT
+        const display = `GMT${sign}${val}`;
+        allTimezones.push({ name, display });
+    }
+
     const tzList = document.getElementById('tzList');
     const tzSearch = document.getElementById('tzSearch');
 
     function renderTzList(filter = "") {
       tzList.innerHTML = "";
-      allTimezones.filter(tz => tz.toLowerCase().includes(filter.toLowerCase())).forEach(tz => {
+      allTimezones.filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase())).forEach(tz => {
         const div = document.createElement('div');
         div.className = 'tz-option';
-        div.textContent = tz;
+        div.textContent = tz.display;
         div.onclick = () => {
-          selectedTz = tz;
-          document.getElementById('tzDisplay').textContent = tz;
+          selectedTz = tz.name;
+          document.getElementById('tzDisplay').textContent = tz.display;
           toggleMenu();
         };
         tzList.appendChild(div);
@@ -164,13 +172,28 @@
     renderTzList();
 
     worker.onmessage = (e) => {
-      const now = new Date(e.data.now);
-      const tzTime = new Date(now.toLocaleString("en-US", {timeZone: selectedTz}));
+      const nowRaw = e.data.now;
+      const nowObj = new Date(nowRaw);
+      
+      // Fix: Get milliseconds from the raw timestamp, because toLocaleString strips them.
+      const milliseconds = nowObj.getMilliseconds();
+      
+      const tzString = nowObj.toLocaleString("en-US", {timeZone: selectedTz});
+      const tzTime = new Date(tzString);
+      
       document.getElementById('dateRow').textContent = tzTime.toLocaleDateString('sv-SE').replace(/-/g, ' ');
-      const ms = String(tzTime.getMilliseconds()).padStart(3, '0');
+      
+      const msStr = String(milliseconds).padStart(3, '0');
       const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-      document.getElementById('timeRow').innerHTML = `${tzTime.toTimeString().split(' ')[0]}.${ms} <span class="subnano">${nano}</span>`;
-      drawAnalog(tzTime);
+      
+      // Splitting time string safely
+      const parts = tzString.split(', ')[1].split(' ');
+      document.getElementById('timeRow').innerHTML = `${parts[0]}.${msStr} <span class="subnano">${nano}</span>`;
+      
+      // Inject the precise milliseconds back for the analog movement
+      const analogDate = new Date(tzTime.getTime());
+      analogDate.setMilliseconds(milliseconds);
+      drawAnalog(analogDate);
     };
 
     function drawAnalog(d) {
