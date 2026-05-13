@@ -26,12 +26,9 @@
       --border: rgba(255,255,255,0.08);
     }
 
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
-    html,
-    body {
+    html, body {
       margin: 0;
       width: 100%;
       height: 100%;
@@ -42,11 +39,7 @@
       transition: background 0.3s ease, color 0.3s ease;
     }
 
-    body {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
+    body { display: flex; align-items: center; justify-content: center; }
 
     .theme-toggle {
       position: fixed;
@@ -63,9 +56,7 @@
       transition: background 0.2s ease, transform 0.2s ease;
     }
 
-    .theme-toggle:hover {
-      transform: scale(1.05);
-    }
+    .theme-toggle:hover { transform: scale(1.05); }
 
     .wrapper {
       display: flex;
@@ -108,14 +99,8 @@
     }
 
     @media (max-width: 900px) {
-      .wrapper {
-        flex-direction: column;
-        gap: 40px;
-      }
-      canvas {
-        width: 180px;
-        height: 180px;
-      }
+      .wrapper { flex-direction: column; gap: 40px; }
+      canvas { width: 180px; height: 180px; }
     }
   </style>
 </head>
@@ -138,12 +123,12 @@
     const ctx = canvas.getContext("2d");
     const toggle = document.getElementById("themeToggle");
 
-    let serverOffset = 0;
-    let visualOffset = 0;
+    // CRITICAL FIX: syncedServerTime stores a baseline from the worker
+    // syncPerfMark stores the exact performance.now() when that baseline was set
+    let syncedServerTime = Date.now(); 
+    let syncPerfMark = performance.now();
     let samples = [];
     let isInitialSync = true;
-    const basePerf = performance.now();
-    const baseEpoch = Date.now();
 
     if ("serviceWorker" in navigator) {
       window.addEventListener("load", () => {
@@ -164,27 +149,24 @@
     async function syncClock() {
       try {
         const batch = [];
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 5; i++) {
           const t0 = performance.now();
           const r = await fetch(`${WORKER_URL}?_=${t0}-${i}`, { cache: "no-store" });
           const d = await r.json();
           const t1 = performance.now();
           const rtt = t1 - t0;
-          batch.push({ offset: d.epoch - (t0 + rtt / 2), rtt });
+          // The theoretical server time when performance.now() equals t1
+          const adjustedServerTime = d.epoch + (rtt / 2);
+          batch.push({ time: adjustedServerTime, mark: t1, rtt });
         }
         batch.sort((a, b) => a.rtt - b.rtt);
         const best = batch[0];
-        samples.push(best);
-        if (samples.length > 20) samples.shift();
-        
-        const weights = samples.reduce((a, b) => a + (1 / Math.max(b.rtt, 0.1)), 0);
-        serverOffset = samples.reduce((a, b) => a + (b.offset * (1 / Math.max(b.rtt, 0.1))), 0) / weights;
 
-        if (isInitialSync) {
-          visualOffset = serverOffset;
-          isInitialSync = false;
-        }
-      } catch (e) {}
+        // Update our reference points
+        syncedServerTime = best.time;
+        syncPerfMark = best.mark;
+        isInitialSync = false;
+      } catch (e) { console.error("Sync failed", e); }
     }
 
     function drawHand(angle, length, width, color) {
@@ -201,14 +183,24 @@
     }
 
     function render() {
-      const p = performance.now();
-      visualOffset += (serverOffset - visualOffset) * 0.015;
-      const t = baseEpoch + (p - basePerf) + visualOffset;
-      const d = new Date(t);
+      const nowPerf = performance.now();
+      
+      // Calculate time based ONLY on the performance delta since last sync
+      // This eliminates Date.now() drift completely
+      const elapsedSinceSync = nowPerf - syncPerfMark;
+      const currentTimeMs = syncedServerTime + elapsedSinceSync;
+      
+      const d = new Date(currentTimeMs);
 
+      // Display logic
       dateRow.textContent = `${d.getFullYear()} ${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getDate()).padStart(2, "0")}`;
-      timeRow.innerHTML = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")} <span class="subnano">${Math.floor((t % 1) * 1000000).toString().padStart(6, "0")}</span>`;
+      
+      const msFrac = currentTimeMs % 1;
+      const nanoDisplay = Math.floor(msFrac * 1000000).toString().padStart(6, "0");
 
+      timeRow.innerHTML = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")} <span class="subnano">${nanoDisplay}</span>`;
+
+      // Canvas Drawing
       const r = canvas.width / 2;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
@@ -250,7 +242,7 @@
     }
 
     syncClock();
-    setInterval(syncClock, 5000);
+    setInterval(syncClock, 10000); // Re-sync every 10s to keep perf timer aligned
     requestAnimationFrame(render);
   </script>
 </body>
