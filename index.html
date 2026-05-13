@@ -9,6 +9,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AccurateClock | The better clock</title>
 
+  <!-- Structured Data for Search Engine Indexing -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "AccurateClock",
+    "operatingSystem": "Web, Android, iOS",
+    "applicationCategory": "UtilitiesApplication",
+    "description": "Minimalist atomic clock with nanosecond precision using Cloudflare Edge sync.",
+    "offers": { "@type": "Offer", "price": "0" }
+  }
+  </script>
+
   <style>
     :root {
       --bg: #F4F4F4;
@@ -32,14 +45,19 @@
       margin: 0;
       width: 100%;
       height: 100%;
-      overflow: hidden;
+      overflow-x: hidden;
       background: var(--bg);
       color: var(--text);
       font-family: Inter, Helvetica Neue, Helvetica, Arial, sans-serif;
       transition: background 0.3s ease, color 0.3s ease;
     }
 
-    body { display: flex; align-items: center; justify-content: center; }
+    body { 
+      display: flex; 
+      flex-direction: column;
+      align-items: center; 
+      justify-content: center; 
+    }
 
     .theme-toggle {
       position: fixed;
@@ -54,6 +72,7 @@
       font-size: 20px;
       cursor: pointer;
       transition: background 0.2s ease, transform 0.2s ease;
+      z-index: 10;
     }
 
     .theme-toggle:hover { transform: scale(1.05); }
@@ -63,6 +82,7 @@
       align-items: center;
       gap: 64px;
       padding: 40px;
+      flex: 1;
     }
 
     .clock-block {
@@ -98,8 +118,16 @@
       height: 240px;
     }
 
+    footer {
+      padding: 20px;
+      opacity: 0.5;
+      font-size: 12px;
+      text-align: center;
+      width: 100%;
+    }
+
     @media (max-width: 900px) {
-      .wrapper { flex-direction: column; gap: 40px; }
+      .wrapper { flex-direction: column; gap: 40px; justify-content: center; }
       canvas { width: 180px; height: 180px; }
     }
   </style>
@@ -115,6 +143,10 @@
     <canvas id="analogClock" width="240" height="240"></canvas>
   </main>
 
+  <footer>
+    A minimalist atomic clock providing nanosecond precision via edge computing.
+  </footer>
+
   <script>
     const WORKER_URL = "https://accurateclock.live-by-unix.workers.dev/";
     const dateRow = document.getElementById("dateRow");
@@ -123,11 +155,8 @@
     const ctx = canvas.getContext("2d");
     const toggle = document.getElementById("themeToggle");
 
-    // CRITICAL FIX: syncedServerTime stores a baseline from the worker
-    // syncPerfMark stores the exact performance.now() when that baseline was set
     let syncedServerTime = Date.now(); 
     let syncPerfMark = performance.now();
-    let samples = [];
     let isInitialSync = true;
 
     if ("serviceWorker" in navigator) {
@@ -155,14 +184,12 @@
           const d = await r.json();
           const t1 = performance.now();
           const rtt = t1 - t0;
-          // The theoretical server time when performance.now() equals t1
           const adjustedServerTime = d.epoch + (rtt / 2);
           batch.push({ time: adjustedServerTime, mark: t1, rtt });
         }
         batch.sort((a, b) => a.rtt - b.rtt);
         const best = batch[0];
 
-        // Update our reference points
         syncedServerTime = best.time;
         syncPerfMark = best.mark;
         isInitialSync = false;
@@ -184,15 +211,10 @@
 
     function render() {
       const nowPerf = performance.now();
-      
-      // Calculate time based ONLY on the performance delta since last sync
-      // This eliminates Date.now() drift completely
       const elapsedSinceSync = nowPerf - syncPerfMark;
       const currentTimeMs = syncedServerTime + elapsedSinceSync;
-      
       const d = new Date(currentTimeMs);
 
-      // Display logic
       dateRow.textContent = `${d.getFullYear()} ${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getDate()).padStart(2, "0")}`;
       
       const msFrac = currentTimeMs % 1;
@@ -200,7 +222,6 @@
 
       timeRow.innerHTML = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")} <span class="subnano">${nanoDisplay}</span>`;
 
-      // Canvas Drawing
       const r = canvas.width / 2;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
@@ -242,7 +263,7 @@
     }
 
     syncClock();
-    setInterval(syncClock, 10000); // Re-sync every 10s to keep perf timer aligned
+    setInterval(syncClock, 10000);
     requestAnimationFrame(render);
   </script>
 </body>
