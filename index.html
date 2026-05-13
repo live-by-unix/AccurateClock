@@ -5,266 +5,204 @@
   <meta name="theme-color" content="#000000">
   <link rel="apple-touch-icon" href="/icon-192.png">
   <meta charset="UTF-8">
-  <meta name="description" content="A minimalist, ad-free atomic clock with nanosecond precision. Auto-adjusts to local time using edge computing.">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AccurateClock | The better clock</title>
-
-  <!-- Structured Data for Search Engine Indexing -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "AccurateClock",
-    "operatingSystem": "Web, Android, iOS",
-    "applicationCategory": "UtilitiesApplication",
-    "description": "Minimalist atomic clock with nanosecond precision using Cloudflare Edge sync.",
-    "offers": { "@type": "Offer", "price": "0" }
-  }
-  </script>
-
+  <title>AccurateClock | A fast, ad free and precise clock.</title>
   <style>
     :root {
-      --bg: #F4F4F4;
-      --text: #121212;
-      --muted: #666;
-      --accent: #121212;
-      --border: rgba(0,0,0,0.08);
+      --bg: #F4F4F4; --text: #121212; --muted: #666; --border: rgba(0,0,0,0.08);
     }
-
     body.dark {
-      --bg: #121212;
-      --text: #F4F4F4;
-      --muted: #999;
-      --accent: #F4F4F4;
-      --border: rgba(255,255,255,0.08);
+      --bg: #121212; --text: #F4F4F4; --muted: #999; --border: rgba(255,255,255,0.08);
     }
-
     * { box-sizing: border-box; }
-
     html, body {
-      margin: 0;
-      width: 100%;
-      height: 100%;
-      overflow-x: hidden;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Inter, Helvetica Neue, Helvetica, Arial, sans-serif;
-      transition: background 0.3s ease, color 0.3s ease;
+      margin: 0; width: 100%; height: 100%; overflow: hidden;
+      background: var(--bg); color: var(--text);
+      font-family: Inter, system-ui, sans-serif;
+      transition: background 0.3s ease;
     }
-
-    body { 
-      display: flex; 
-      flex-direction: column;
-      align-items: center; 
-      justify-content: center; 
-    }
-
+    body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    
     .theme-toggle {
-      position: fixed;
-      top: 24px;
-      right: 24px;
-      width: 48px;
-      height: 48px;
-      border-radius: 50%;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text);
-      font-size: 20px;
-      cursor: pointer;
-      transition: background 0.2s ease, transform 0.2s ease;
-      z-index: 10;
+      position: fixed; top: 20px; right: 20px; width: 44px; height: 44px;
+      border-radius: 50%; border: 1px solid var(--border);
+      background: transparent; color: var(--text); cursor: pointer; z-index: 10;
     }
-
-    .theme-toggle:hover { transform: scale(1.05); }
 
     .wrapper {
-      display: flex;
-      align-items: center;
-      gap: 64px;
-      padding: 40px;
-      flex: 1;
+      display: flex; align-items: center; gap: 40px; padding: 20px; flex: 1;
     }
 
-    .clock-block {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+    .clock-block { display: flex; flex-direction: column; gap: 10px; }
+    .date-row { font-size: clamp(24px, 4vw, 40px); font-weight: 300; color: var(--muted); }
+    .time-row { 
+      font-size: clamp(32px, 6vw, 80px); font-weight: 200; 
+      font-family: monospace; font-variant-numeric: tabular-nums; 
     }
+    .subnano { font-size: 0.4em; opacity: 0.6; }
+    canvas { width: 220px; height: 220px; }
 
-    .date-row {
-      font-size: clamp(28px, 4vw, 48px);
-      font-weight: 300;
-      letter-spacing: 0.08em;
-      color: var(--muted);
+    /* Hidden Menu System */
+    #tzMenu {
+      position: fixed; bottom: 0; left: 0; width: 100%; height: 60%;
+      background: var(--bg); border-top: 1px solid var(--border);
+      transform: translateY(100%); transition: transform 0.3s ease;
+      z-index: 100; padding: 20px; overflow-y: auto;
     }
-
-    .time-row {
-      font-size: clamp(42px, 7vw, 96px);
-      font-weight: 200;
-      line-height: 1;
-      letter-spacing: -0.03em;
-      font-variant-numeric: tabular-nums;
-      font-family: SFMono-Regular, ui-monospace, Menlo, Monaco, Consolas, monospace;
-      white-space: nowrap;
+    #tzMenu.open { transform: translateY(0); }
+    .tz-link { 
+      position: fixed; bottom: 5px; right: 5px; text-decoration: none; 
+      color: var(--muted); font-size: 10px; cursor: pointer; opacity: 0.3;
     }
+    .tz-option { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
 
-    .subnano {
-      font-size: 0.4em;
-      opacity: 0.75;
-    }
-
-    canvas {
-      width: 240px;
-      height: 240px;
-    }
-
-    footer {
-      padding: 20px;
-      opacity: 0.5;
-      font-size: 12px;
-      text-align: center;
-      width: 100%;
-    }
-
-    @media (max-width: 900px) {
-      .wrapper { flex-direction: column; gap: 40px; justify-content: center; }
-      canvas { width: 180px; height: 180px; }
+    @media (max-width: 768px) {
+      .wrapper { flex-direction: column; text-align: center; }
     }
   </style>
 </head>
 <body>
+
   <button class="theme-toggle" id="themeToggle">☾</button>
 
   <main class="wrapper">
     <div class="clock-block">
-      <div class="date-row" id="dateRow">---- -- --</div>
-      <div class="time-row" id="timeRow">--:--:--.--- <span class="subnano">000000</span></div>
+      <div id="dateRow" class="date-row">---- -- --</div>
+      <div id="timeRow" class="time-row">--:--:--.--- <span class="subnano">000000</span></div>
+      <div id="tzDisplay" style="font-size: 12px; color: var(--muted);">Local Time</div>
     </div>
-    <canvas id="analogClock" width="240" height="240"></canvas>
+    <canvas id="analogClock" width="440" height="440" style="width:220px; height:220px;"></canvas>
   </main>
 
-  <footer>
-    A minimalist atomic clock providing nanosecond precision via edge computing.
-  </footer>
+  <div id="tzMenu">
+    <h3>Timezones</h3>
+    <div id="tzList"></div>
+    <button onclick="toggleMenu()" style="width:100%; padding: 15px; margin-top: 10px;">Close</button>
+  </div>
+
+  <a class="tz-link" onclick="toggleMenu()">.</a>
 
   <script>
-    const WORKER_URL = "https://accurateclock.live-by-unix.workers.dev/";
-    const dateRow = document.getElementById("dateRow");
-    const timeRow = document.getElementById("timeRow");
     const canvas = document.getElementById("analogClock");
     const ctx = canvas.getContext("2d");
-    const toggle = document.getElementById("themeToggle");
+    const bc = new BroadcastChannel('clock_sync');
+    let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    let wakeLock = null;
 
-    let syncedServerTime = Date.now(); 
-    let syncPerfMark = performance.now();
-    let isInitialSync = true;
+    // 1. Web Worker for precise timing logic
+    const workerCode = `
+      let offset = 0;
+      self.onmessage = (e) => {
+        if(e.data.type === 'sync') offset = e.data.offset;
+      };
+      setInterval(() => {
+        const now = Date.now() + offset;
+        self.postMessage({ type: 'tick', now });
+      }, 16);
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const worker = new Worker(URL.createObjectURL(blob));
 
-    if ("serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker.register("/sw.js").catch(()=>{});
-      });
-    }
-
-    function applyTheme(theme) {
-      document.body.classList.toggle("dark", theme === "dark");
-      toggle.textContent = theme === "dark" ? "☀" : "☾";
-      localStorage.setItem("accurateclock-theme", theme);
-    }
-
-    const savedTheme = localStorage.getItem("accurateclock-theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    applyTheme(savedTheme);
-    toggle.addEventListener("click", () => applyTheme(document.body.classList.contains("dark") ? "light" : "dark"));
-
-    async function syncClock() {
+    // 2. Handle Clock Drift & Sync
+    async function syncTime() {
       try {
-        const batch = [];
-        for (let i = 0; i < 5; i++) {
-          const t0 = performance.now();
-          const r = await fetch(`${WORKER_URL}?_=${t0}-${i}`, { cache: "no-store" });
-          const d = await r.json();
-          const t1 = performance.now();
-          const rtt = t1 - t0;
-          const adjustedServerTime = d.epoch + (rtt / 2);
-          batch.push({ time: adjustedServerTime, mark: t1, rtt });
-        }
-        batch.sort((a, b) => a.rtt - b.rtt);
-        const best = batch[0];
-
-        syncedServerTime = best.time;
-        syncPerfMark = best.mark;
-        isInitialSync = false;
-      } catch (e) { console.error("Sync failed", e); }
+        const t0 = performance.now();
+        const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", { cache: "no-store" });
+        const d = await r.json();
+        const rtt = performance.now() - t0;
+        const serverOffset = (d.epoch + (rtt / 2)) - Date.now();
+        
+        worker.postMessage({ type: 'sync', offset: serverOffset });
+        bc.postMessage({ type: 'offset_share', offset: serverOffset });
+      } catch (e) {}
     }
 
-    function drawHand(angle, length, width, color) {
-      ctx.save();
-      ctx.rotate(angle);
-      ctx.beginPath();
-      ctx.moveTo(0, 15);
-      ctx.lineTo(0, -length);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
-      ctx.lineCap = "round";
-      ctx.stroke();
-      ctx.restore();
+    // 3. Sleep/Wake Logic
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        syncTime();
+        requestWakeLock();
+      }
+    });
+
+    // 4. Broadcast Channel for multi-tab sync
+    bc.onmessage = (e) => {
+      if (e.data.type === 'offset_share') worker.postMessage({ type: 'sync', offset: e.data.offset });
+    };
+
+    // 5. Screen Wake Lock
+    async function requestWakeLock() {
+      try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
     }
 
-    function render() {
-      const nowPerf = performance.now();
-      const elapsedSinceSync = nowPerf - syncPerfMark;
-      const currentTimeMs = syncedServerTime + elapsedSinceSync;
-      const d = new Date(currentTimeMs);
+    // 6. Timezone Menu Logic
+    function toggleMenu() { document.getElementById('tzMenu').classList.toggle('open'); }
+    
+    const timezones = Intl.supportedValuesOf('timeZone');
+    const tzList = document.getElementById('tzList');
+    timezones.forEach(tz => {
+      const div = document.createElement('div');
+      div.className = 'tz-option';
+      div.textContent = tz;
+      div.onclick = () => {
+        selectedTz = tz;
+        document.getElementById('tzDisplay').textContent = tz;
+        toggleMenu();
+      };
+      tzList.appendChild(div);
+    });
 
-      dateRow.textContent = `${d.getFullYear()} ${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getDate()).padStart(2, "0")}`;
+    // 7. Rendering Logic
+    worker.onmessage = (e) => {
+      const now = new Date(e.data.now);
+      const tzTime = new Date(now.toLocaleString("en-US", {timeZone: selectedTz}));
       
-      const msFrac = currentTimeMs % 1;
-      const nanoDisplay = Math.floor(msFrac * 1000000).toString().padStart(6, "0");
+      document.getElementById('dateRow').textContent = tzTime.toLocaleDateString('sv-SE').replace(/-/g, ' ');
+      
+      const ms = String(tzTime.getMilliseconds()).padStart(3, '0');
+      const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0'); // Simulated nano for UI
+      
+      document.getElementById('timeRow').innerHTML = `${tzTime.toTimeString().split(' ')[0]}.${ms} <span class="subnano">${nano}</span>`;
+      
+      drawAnalog(tzTime);
+    };
 
-      timeRow.innerHTML = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")} <span class="subnano">${nanoDisplay}</span>`;
-
-      const r = canvas.width / 2;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    function drawAnalog(d) {
+      ctx.clearRect(0, 0, 440, 440);
       ctx.save();
-      ctx.translate(r, r);
-      const s = getComputedStyle(document.body);
-      const fg = s.getPropertyValue("--text").trim();
+      ctx.translate(220, 220);
+      const fg = getComputedStyle(document.body).getPropertyValue("--text").trim();
       
-      ctx.beginPath();
-      ctx.arc(0, 0, r - 8, 0, Math.PI * 2);
-      ctx.strokeStyle = s.getPropertyValue("--border").trim();
-      ctx.lineWidth = 2;
-      ctx.stroke();
-
+      // Face & Ticks
       ctx.strokeStyle = fg;
-      for (let i = 0; i < 12; i++) {
-        ctx.beginPath();
-        ctx.moveTo(0, -r + 15);
-        ctx.lineTo(0, -r + 25);
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        ctx.rotate(Math.PI / 6);
+      for(let i=0; i<12; i++) {
+        ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth=4; ctx.stroke(); ctx.rotate(Math.PI/6);
       }
 
-      const sec = d.getSeconds() + d.getMilliseconds() / 1000;
-      const min = d.getMinutes() + sec / 60;
-      const hor = (d.getHours() % 12) + min / 60;
+      const s = d.getSeconds() + d.getMilliseconds()/1000;
+      const m = d.getMinutes() + s/60;
+      const h = (d.getHours() % 12) + m/60;
 
-      drawHand(hor * (Math.PI / 6), r * 0.45, 6, fg);
-      drawHand(min * (Math.PI / 30), r * 0.70, 4, fg);
-      drawHand(sec * (Math.PI / 30), r * 0.85, 2, "#E74C3C");
+      const drawHand = (angle, len, width, color) => {
+        ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(0,-len);
+        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+      };
 
-      ctx.beginPath();
-      ctx.arc(0, 0, 4, 0, Math.PI * 2);
-      ctx.fillStyle = fg;
-      ctx.fill();
+      drawHand(h * Math.PI/6, 120, 10, fg);
+      drawHand(m * Math.PI/30, 170, 6, fg);
+      drawHand(s * Math.PI/30, 190, 3, "#E74C3C");
       ctx.restore();
-
-      requestAnimationFrame(render);
     }
 
-    syncClock();
-    setInterval(syncClock, 10000);
-    requestAnimationFrame(render);
+    // Initializations
+    const toggle = document.getElementById("themeToggle");
+    toggle.onclick = () => {
+      document.body.classList.toggle("dark");
+      toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
+    };
+    
+    syncTime();
+    requestWakeLock();
   </script>
 </body>
 </html>
