@@ -203,407 +203,184 @@
   </button>
 </div>
 
-<a class="tz-link" onclick="toggleMenu()">🕒</a>
+<a class="tz-link" href="#tzMenu" id="tzToggleLink">🕒</a>
 
 <script>
 const canvas = document.getElementById("analogClock");
 const ctx = canvas.getContext("2d");
-
 const bc = new BroadcastChannel('clock_sync');
+const tzToggleLink = document.getElementById('tzToggleLink');
 
-let selectedTz =
-  Intl.DateTimeFormat().resolvedOptions().timeZone;
-
+let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let wakeLock = null;
 
 const workerCode = `
   let offset = 0;
-
   self.onmessage = (e) => {
     if(e.data.type === 'sync') {
       offset = e.data.offset;
     }
   };
-
   setInterval(() => {
     const now = Date.now() + offset;
-
-    self.postMessage({
-      type: 'tick',
-      now
-    });
+    self.postMessage({ type: 'tick', now });
   }, 16);
 `;
 
-const blob = new Blob(
-  [workerCode],
-  { type: 'application/javascript' }
-);
-
-const worker =
-  new Worker(URL.createObjectURL(blob));
+const blob = new Blob([workerCode], { type: 'application/javascript' });
+const worker = new Worker(URL.createObjectURL(blob));
 
 async function syncTime() {
   try {
     const t0 = performance.now();
-
-    const r = await fetch(
-      "https://accurateclock.live-by-unix.workers.dev/",
-      { cache: "no-store" }
-    );
-
+    const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", { cache: "no-store" });
     const d = await r.json();
-
     const rtt = performance.now() - t0;
-
-    const serverOffset =
-      (d.epoch + (rtt / 2)) - Date.now();
-
-    worker.postMessage({
-      type: 'sync',
-      offset: serverOffset
-    });
-
-    bc.postMessage({
-      type: 'offset_share',
-      offset: serverOffset
-    });
-
+    const serverOffset = (d.epoch + (rtt / 2)) - Date.now();
+    worker.postMessage({ type: 'sync', offset: serverOffset });
+    bc.postMessage({ type: 'offset_share', offset: serverOffset });
   } catch(e) {}
 }
 
-document.addEventListener(
-  'visibilitychange',
-  () => {
+document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'visible') {
       syncTime();
       requestWakeLock();
     }
-  }
-);
+});
 
 bc.onmessage = (e) => {
   if(e.data.type === 'offset_share') {
-    worker.postMessage({
-      type: 'sync',
-      offset: e.data.offset
-    });
+    worker.postMessage({ type: 'sync', offset: e.data.offset });
   }
 };
 
 async function requestWakeLock() {
   try {
     if('wakeLock' in navigator) {
-      wakeLock =
-        await navigator.wakeLock.request('screen');
+      wakeLock = await navigator.wakeLock.request('screen');
     }
   } catch(err) {}
 }
 
-function toggleMenu() {
-  document
-    .getElementById('tzMenu')
-    .classList
-    .toggle('open');
+function toggleMenu(e) {
+  if (e) e.preventDefault();
+  document.getElementById('tzMenu').classList.toggle('open');
 }
 
-/* GMT OFFSETS + LOCATIONS */
+tzToggleLink.addEventListener('click', toggleMenu);
 
+/* GMT OFFSETS + LOCATIONS */
 const timezoneLocations = {
-  "-12": "Baker Island",
-  "-11": "American Samoa",
-  "-10": "Hawaii",
-  "-9": "Alaska",
-  "-8": "Los Angeles",
-  "-7": "Denver",
-  "-6": "Chicago",
-  "-5": "New York",
-  "-4": "Santiago",
-  "-3": "Buenos Aires",
-  "-2": "South Georgia",
-  "-1": "Azores",
-  "0": "London",
-  "1": "Berlin",
-  "2": "Cairo",
-  "3": "Moscow",
-  "4": "Dubai",
-  "5": "Karachi",
-  "6": "Dhaka",
-  "7": "Bangkok",
-  "8": "Singapore",
-  "9": "Tokyo",
-  "10": "Sydney",
-  "11": "Noumea",
-  "12": "Auckland",
-  "13": "Samoa",
-  "14": "Kiritimati"
+  "-12": "Baker Island", "-11": "American Samoa", "-10": "Hawaii", "-9": "Alaska", "-8": "Los Angeles", "-7": "Denver", "-6": "Chicago", "-5": "New York", "-4": "Santiago", "-3": "Buenos Aires", "-2": "South Georgia", "-1": "Azores", "0": "London", "1": "Berlin", "2": "Cairo", "3": "Moscow", "4": "Dubai", "5": "Karachi", "6": "Dhaka", "7": "Bangkok", "8": "Singapore", "9": "Tokyo", "10": "Sydney", "11": "Noumea", "12": "Auckland", "13": "Samoa", "14": "Kiritimati"
 };
 
 const allTimezones = [];
-
 for(let i = -12; i <= 14; i++) {
-
-  const sign =
-    i >= 0 ? "+" : "-";
-
-  const val =
-    Math.abs(i);
-
-  const name =
-    `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
-
-  const location =
-    timezoneLocations[String(i)] || "Unknown";
-
-  const display =
-    `GMT${sign}${val} / ${location}`;
-
-  allTimezones.push({
-    name,
-    display
-  });
+  const sign = i >= 0 ? "+" : "-";
+  const val = Math.abs(i);
+  const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
+  const location = timezoneLocations[String(i)] || "Unknown";
+  const display = `GMT${sign}${val} / ${location}`;
+  allTimezones.push({ name, display });
 }
 
-const tzList =
-  document.getElementById('tzList');
-
-const tzSearch =
-  document.getElementById('tzSearch');
+const tzList = document.getElementById('tzList');
+const tzSearch = document.getElementById('tzSearch');
 
 function renderTzList(filter = "") {
-
   tzList.innerHTML = "";
-
   allTimezones
-    .filter(tz =>
-      tz.display
-        .toLowerCase()
-        .includes(filter.toLowerCase())
-    )
+    .filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase()))
     .forEach(tz => {
-
-      const div =
-        document.createElement('div');
-
-      div.className =
-        'tz-option';
-
-      div.textContent =
-        tz.display;
-
+      const div = document.createElement('div');
+      div.className = 'tz-option';
+      div.textContent = tz.display;
       div.onclick = () => {
-
-        selectedTz =
-          tz.name;
-
-        document.getElementById('tzDisplay')
-          .textContent =
-            tz.display;
-
+        selectedTz = tz.name;
+        document.getElementById('tzDisplay').textContent = tz.display;
         toggleMenu();
       };
-
       tzList.appendChild(div);
     });
 }
 
-tzSearch.addEventListener(
-  'input',
-  (e) => renderTzList(e.target.value)
-);
-
+tzSearch.addEventListener('input', (e) => renderTzList(e.target.value));
 renderTzList();
 
 /* CLOCK UPDATE */
-
 worker.onmessage = (e) => {
-
-  const nowRaw =
-    e.data.now;
-
-  const nowObj =
-    new Date(nowRaw);
-
-  const milliseconds =
-    nowObj.getMilliseconds();
-
-  const formatter =
-    new Intl.DateTimeFormat("en-GB", {
+  const nowRaw = e.data.now;
+  const nowObj = new Date(nowRaw);
+  const milliseconds = nowObj.getMilliseconds();
+  const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: selectedTz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
       hour12: false
-    });
+  });
 
-  const parts =
-    formatter.formatToParts(nowObj);
+  const parts = formatter.formatToParts(nowObj);
+  const get = (type) => parts.find(p => p.type === type)?.value || "00";
 
-  const get = (type) =>
-    parts.find(p => p.type === type)?.value || "00";
+  document.getElementById('dateRow').textContent = `${get("year")} ${get("month")} ${get("day")}`;
+  const msStr = String(milliseconds).padStart(3, '0');
+  const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
 
-  const year =
-    get("year");
+  document.getElementById('timeRow').innerHTML = 
+      `${get("hour")}:${get("minute")}:${get("second")}.${msStr} <span class="subnano">${nano}</span>`;
 
-  const month =
-    get("month");
-
-  const day =
-    get("day");
-
-  const hour =
-    get("hour");
-
-  const minute =
-    get("minute");
-
-  const second =
-    get("second");
-
-  document.getElementById('dateRow')
-    .textContent =
-      `${year} ${month} ${day}`;
-
-  const msStr =
-    String(milliseconds)
-      .padStart(3, '0');
-
-  const nano =
-    Math.floor(Math.random() * 999999)
-      .toString()
-      .padStart(6, '0');
-
-  document.getElementById('timeRow')
-    .innerHTML =
-      `${hour}:${minute}:${second}.${msStr}
-      <span class="subnano">${nano}</span>`;
-
-  const analogDate =
-    new Date(
-      nowObj.toLocaleString("en-US", {
-        timeZone: selectedTz
-      })
-    );
-
+  const analogDate = new Date(nowObj.toLocaleString("en-US", { timeZone: selectedTz }));
   analogDate.setMilliseconds(milliseconds);
-
   drawAnalog(analogDate);
 };
 
-/* ANALOG CLOCK */
-
 function drawAnalog(d) {
-
   ctx.clearRect(0, 0, 440, 440);
-
   ctx.save();
-
   ctx.translate(220, 220);
-
-  const fg =
-    getComputedStyle(document.body)
-      .getPropertyValue("--text")
-      .trim();
-
+  const fg = getComputedStyle(document.body).getPropertyValue("--text").trim();
   ctx.strokeStyle = fg;
 
   for(let i = 0; i < 12; i++) {
-
     ctx.beginPath();
-
     ctx.moveTo(0, -190);
-
     ctx.lineTo(0, -210);
-
     ctx.lineWidth = 4;
-
     ctx.stroke();
-
     ctx.rotate(Math.PI / 6);
   }
 
-  const s =
-    d.getSeconds() +
-    d.getMilliseconds() / 1000;
+  const s = d.getSeconds() + d.getMilliseconds() / 1000;
+  const m = d.getMinutes() + s / 60;
+  const h = (d.getHours() % 12) + m / 60;
 
-  const m =
-    d.getMinutes() +
-    s / 60;
-
-  const h =
-    (d.getHours() % 12) +
-    m / 60;
-
-  const drawHand =
-    (angle, len, width, color) => {
-
+  const drawHand = (angle, len, width, color) => {
       ctx.save();
-
       ctx.rotate(angle);
-
       ctx.beginPath();
-
       ctx.moveTo(0, 10);
-
       ctx.lineTo(0, -len);
-
       ctx.strokeStyle = color;
-
       ctx.lineWidth = width;
-
       ctx.lineCap = "round";
-
       ctx.stroke();
-
       ctx.restore();
-    };
+  };
 
-  drawHand(
-    h * Math.PI / 6,
-    120,
-    10,
-    fg
-  );
-
-  drawHand(
-    m * Math.PI / 30,
-    170,
-    6,
-    fg
-  );
-
-  drawHand(
-    s * Math.PI / 30,
-    190,
-    3,
-    "#E74C3C"
-  );
-
+  drawHand(h * Math.PI / 6, 120, 10, fg);
+  drawHand(m * Math.PI / 30, 170, 6, fg);
+  drawHand(s * Math.PI / 30, 190, 3, "#E74C3C");
   ctx.restore();
 }
 
-/* THEME */
-
-const toggle =
-  document.getElementById("themeToggle");
-
+const toggle = document.getElementById("themeToggle");
 toggle.onclick = () => {
-
-  document.body
-    .classList
-    .toggle("dark");
-
-  toggle.textContent =
-    document.body.classList.contains("dark")
-      ? "☀"
-      : "☾";
+  document.body.classList.toggle("dark");
+  toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
 };
 
 syncTime();
-
 requestWakeLock();
 </script>
 
