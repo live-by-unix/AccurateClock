@@ -140,14 +140,52 @@
 
     function toggleMenu() { document.getElementById('tzMenu').classList.toggle('open'); }
     
-    // Generate GMT Timezones
+    // Generate GMT Timezones with locations
+    const timezoneLocations = {
+      "-12": "Baker Island",
+      "-11": "American Samoa",
+      "-10": "Hawaii",
+      "-9": "Alaska",
+      "-8": "Los Angeles",
+      "-7": "Denver",
+      "-6": "Chicago",
+      "-5": "New York",
+      "-4": "Santiago",
+      "-3": "Buenos Aires",
+      "-2": "South Georgia",
+      "-1": "Azores",
+      "0": "London",
+      "1": "Berlin",
+      "2": "Cairo",
+      "3": "Moscow",
+      "4": "Dubai",
+      "5": "Karachi",
+      "6": "Dhaka",
+      "7": "Bangkok",
+      "8": "Singapore",
+      "9": "Tokyo",
+      "10": "Sydney",
+      "11": "Noumea",
+      "12": "Auckland",
+      "13": "Samoa",
+      "14": "Kiritimati"
+    };
+
     const allTimezones = [];
+
     for(let i = -12; i <= 14; i++) {
         const sign = i >= 0 ? "+" : "-";
         const val = Math.abs(i);
-        const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`; // IANA uses inverted signs for Etc/GMT
-        const display = `GMT${sign}${val}`;
-        allTimezones.push({ name, display });
+
+        const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
+        const location = timezoneLocations[String(i)] || "Unknown";
+
+        const display = `GMT${sign}${val} / ${location}`;
+
+        allTimezones.push({
+          name,
+          display
+        });
     }
 
     const tzList = document.getElementById('tzList');
@@ -175,10 +213,13 @@
       const nowRaw = e.data.now;
       const nowObj = new Date(nowRaw);
       
-      // Fix: Get milliseconds from the raw timestamp, because toLocaleString strips them.
       const milliseconds = nowObj.getMilliseconds();
       
-      const tzString = nowObj.toLocaleString("en-US", {timeZone: selectedTz});
+      const tzString = nowObj.toLocaleString("en-GB", {
+        timeZone: selectedTz,
+        hour12: false
+      });
+
       const tzTime = new Date(tzString);
       
       document.getElementById('dateRow').textContent = tzTime.toLocaleDateString('sv-SE').replace(/-/g, ' ');
@@ -186,11 +227,9 @@
       const msStr = String(milliseconds).padStart(3, '0');
       const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
       
-      // Splitting time string safely
       const parts = tzString.split(', ')[1].split(' ');
       document.getElementById('timeRow').innerHTML = `${parts[0]}.${msStr} <span class="subnano">${nano}</span>`;
       
-      // Inject the precise milliseconds back for the analog movement
       const analogDate = new Date(tzTime.getTime());
       analogDate.setMilliseconds(milliseconds);
       drawAnalog(analogDate);
