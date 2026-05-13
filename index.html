@@ -7,264 +7,603 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AccurateClock | A amazing clock</title>
+
   <style>
     :root {
-      --bg: #F4F4F4; --text: #121212; --muted: #666; --border: rgba(0,0,0,0.08);
+      --bg: #F4F4F4;
+      --text: #121212;
+      --muted: #666;
+      --border: rgba(0,0,0,0.08);
     }
+
     body.dark {
-      --bg: #121212; --text: #F4F4F4; --muted: #999; --border: rgba(255,255,255,0.08);
+      --bg: #121212;
+      --text: #F4F4F4;
+      --muted: #999;
+      --border: rgba(255,255,255,0.08);
     }
-    * { box-sizing: border-box; }
+
+    * {
+      box-sizing: border-box;
+    }
+
     html, body {
-      margin: 0; width: 100%; height: 100%; overflow: hidden;
-      background: var(--bg); color: var(--text);
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
       font-family: Inter, system-ui, sans-serif;
       transition: background 0.3s ease;
     }
-    body { display: flex; flex-direction: column; align-items: center; justify-content: center; }
-    
+
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
     .theme-toggle {
-      position: fixed; top: 20px; right: 20px; width: 44px; height: 44px;
-      border-radius: 50%; border: 1px solid var(--border);
-      background: transparent; color: var(--text); cursor: pointer; z-index: 10;
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      z-index: 10;
     }
 
     .wrapper {
-      display: flex; align-items: center; gap: 40px; padding: 20px; flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 40px;
+      padding: 20px;
+      flex: 1;
     }
 
-    .clock-block { display: flex; flex-direction: column; gap: 10px; }
-    .date-row { font-size: clamp(24px, 4vw, 40px); font-weight: 300; color: var(--muted); }
-    .time-row { 
-      font-size: clamp(32px, 6vw, 80px); font-weight: 200; 
-      font-family: monospace; font-variant-numeric: tabular-nums; 
+    .clock-block {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
-    .subnano { font-size: 0.4em; opacity: 0.6; }
-    canvas { width: 220px; height: 220px; }
+
+    .date-row {
+      font-size: clamp(24px, 4vw, 40px);
+      font-weight: 300;
+      color: var(--muted);
+    }
+
+    .time-row {
+      font-size: clamp(32px, 6vw, 80px);
+      font-weight: 200;
+      font-family: monospace;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .subnano {
+      font-size: 0.4em;
+      opacity: 0.6;
+    }
+
+    canvas {
+      width: 220px;
+      height: 220px;
+    }
 
     #tzMenu {
-      position: fixed; bottom: 0; left: 0; width: 100%; height: 70%;
-      background: var(--bg); border-top: 1px solid var(--border);
-      transform: translateY(100%); transition: transform 0.3s ease;
-      z-index: 100; padding: 20px; display: flex; flex-direction: column;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 70%;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+      z-index: 100;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
     }
-    #tzMenu.open { transform: translateY(0); }
-    
+
+    #tzMenu.open {
+      transform: translateY(0);
+    }
+
     #tzSearch {
-      width: 100%; padding: 12px; margin-bottom: 15px;
-      background: transparent; border: 1px solid var(--border);
-      color: var(--text); border-radius: 8px; font-size: 16px;
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 15px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 16px;
     }
 
-    #tzList { flex: 1; overflow-y: auto; }
-
-    .tz-link { 
-      position: fixed; bottom: 10px; right: 10px; text-decoration: none; 
-      color: var(--muted); font-size: 20px; cursor: pointer; opacity: 0.5;
+    #tzList {
+      flex: 1;
+      overflow-y: auto;
     }
-    .tz-option { padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; }
-    .tz-option:hover { background: var(--border); }
+
+    .tz-link {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      text-decoration: none;
+      color: var(--muted);
+      font-size: 20px;
+      cursor: pointer;
+      opacity: 0.5;
+    }
+
+    .tz-option {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+    }
+
+    .tz-option:hover {
+      background: var(--border);
+    }
 
     @media (max-width: 768px) {
-      .wrapper { flex-direction: column; text-align: center; }
+      .wrapper {
+        flex-direction: column;
+        text-align: center;
+      }
     }
   </style>
 </head>
+
 <body>
 
-  <button class="theme-toggle" id="themeToggle">☾</button>
+<button class="theme-toggle" id="themeToggle">☾</button>
 
-  <main class="wrapper">
-    <div class="clock-block">
-      <div id="dateRow" class="date-row">---- -- --</div>
-      <div id="timeRow" class="time-row">--:--:--.--- <span class="subnano">000000</span></div>
-      <div id="tzDisplay" style="font-size: 12px; color: var(--muted);">Local Time</div>
+<main class="wrapper">
+  <div class="clock-block">
+    <div id="dateRow" class="date-row">---- -- --</div>
+
+    <div id="timeRow" class="time-row">
+      --:--:--.---
+      <span class="subnano">000000</span>
     </div>
-    <canvas id="analogClock" width="440" height="440" style="width:220px; height:220px;"></canvas>
-  </main>
 
-  <div id="tzMenu">
-    <input type="text" id="tzSearch" placeholder="Search GMT offset (e.g. GMT+5)...">
-    <div id="tzList"></div>
-    <button onclick="toggleMenu()" style="width:100%; padding: 15px; margin-top: 10px; cursor: pointer;">Close</button>
+    <div id="tzDisplay"
+         style="font-size: 12px; color: var(--muted);">
+      Local Time
+    </div>
   </div>
 
-  <a class="tz-link" onclick="toggleMenu()">🕒</a>
+  <canvas id="analogClock"
+          width="440"
+          height="440"
+          style="width:220px; height:220px;">
+  </canvas>
+</main>
 
-  <script>
-    const canvas = document.getElementById("analogClock");
-    const ctx = canvas.getContext("2d");
-    const bc = new BroadcastChannel('clock_sync');
-    let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    let wakeLock = null;
+<div id="tzMenu">
+  <input type="text"
+         id="tzSearch"
+         placeholder="Search GMT offset (e.g. GMT+5)...">
 
-    const workerCode = `
-      let offset = 0;
-      self.onmessage = (e) => {
-        if(e.data.type === 'sync') offset = e.data.offset;
-      };
-      setInterval(() => {
-        const now = Date.now() + offset;
-        self.postMessage({ type: 'tick', now });
-      }, 16);
-    `;
-    const blob = new Blob([workerCode], { type: 'application/javascript' });
-    const worker = new Worker(URL.createObjectURL(blob));
+  <div id="tzList"></div>
 
-    async function syncTime() {
-      try {
-        const t0 = performance.now();
-        const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", { cache: "no-store" });
-        const d = await r.json();
-        const rtt = performance.now() - t0;
-        const serverOffset = (d.epoch + (rtt / 2)) - Date.now();
-        worker.postMessage({ type: 'sync', offset: serverOffset });
-        bc.postMessage({ type: 'offset_share', offset: serverOffset });
-      } catch (e) {}
+  <button onclick="toggleMenu()"
+          style="width:100%; padding:15px; margin-top:10px; cursor:pointer;">
+    Close
+  </button>
+</div>
+
+<a class="tz-link" onclick="toggleMenu()">🕒</a>
+
+<script>
+const canvas = document.getElementById("analogClock");
+const ctx = canvas.getContext("2d");
+
+const bc = new BroadcastChannel('clock_sync');
+
+let selectedTz =
+  Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+let wakeLock = null;
+
+const workerCode = `
+  let offset = 0;
+
+  self.onmessage = (e) => {
+    if(e.data.type === 'sync') {
+      offset = e.data.offset;
     }
+  };
 
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        syncTime();
-        requestWakeLock();
-      }
+  setInterval(() => {
+    const now = Date.now() + offset;
+
+    self.postMessage({
+      type: 'tick',
+      now
+    });
+  }, 16);
+`;
+
+const blob = new Blob(
+  [workerCode],
+  { type: 'application/javascript' }
+);
+
+const worker =
+  new Worker(URL.createObjectURL(blob));
+
+async function syncTime() {
+  try {
+    const t0 = performance.now();
+
+    const r = await fetch(
+      "https://accurateclock.live-by-unix.workers.dev/",
+      { cache: "no-store" }
+    );
+
+    const d = await r.json();
+
+    const rtt = performance.now() - t0;
+
+    const serverOffset =
+      (d.epoch + (rtt / 2)) - Date.now();
+
+    worker.postMessage({
+      type: 'sync',
+      offset: serverOffset
     });
 
-    bc.onmessage = (e) => {
-      if (e.data.type === 'offset_share') worker.postMessage({ type: 'sync', offset: e.data.offset });
-    };
+    bc.postMessage({
+      type: 'offset_share',
+      offset: serverOffset
+    });
 
-    async function requestWakeLock() {
-      try { if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); } catch (err) {}
+  } catch(e) {}
+}
+
+document.addEventListener(
+  'visibilitychange',
+  () => {
+    if(document.visibilityState === 'visible') {
+      syncTime();
+      requestWakeLock();
     }
+  }
+);
 
-    function toggleMenu() { document.getElementById('tzMenu').classList.toggle('open'); }
-    
-    // Generate GMT Timezones with locations
-    const timezoneLocations = {
-      "-12": "Baker Island",
-      "-11": "American Samoa",
-      "-10": "Hawaii",
-      "-9": "Alaska",
-      "-8": "Los Angeles",
-      "-7": "Denver",
-      "-6": "Chicago",
-      "-5": "New York",
-      "-4": "Santiago",
-      "-3": "Buenos Aires",
-      "-2": "South Georgia",
-      "-1": "Azores",
-      "0": "London",
-      "1": "Berlin",
-      "2": "Cairo",
-      "3": "Moscow",
-      "4": "Dubai",
-      "5": "Karachi",
-      "6": "Dhaka",
-      "7": "Bangkok",
-      "8": "Singapore",
-      "9": "Tokyo",
-      "10": "Sydney",
-      "11": "Noumea",
-      "12": "Auckland",
-      "13": "Samoa",
-      "14": "Kiritimati"
-    };
+bc.onmessage = (e) => {
+  if(e.data.type === 'offset_share') {
+    worker.postMessage({
+      type: 'sync',
+      offset: e.data.offset
+    });
+  }
+};
 
-    const allTimezones = [];
-
-    for(let i = -12; i <= 14; i++) {
-        const sign = i >= 0 ? "+" : "-";
-        const val = Math.abs(i);
-
-        const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
-        const location = timezoneLocations[String(i)] || "Unknown";
-
-        const display = `GMT${sign}${val} / ${location}`;
-
-        allTimezones.push({
-          name,
-          display
-        });
+async function requestWakeLock() {
+  try {
+    if('wakeLock' in navigator) {
+      wakeLock =
+        await navigator.wakeLock.request('screen');
     }
+  } catch(err) {}
+}
 
-    const tzList = document.getElementById('tzList');
-    const tzSearch = document.getElementById('tzSearch');
+function toggleMenu() {
+  document
+    .getElementById('tzMenu')
+    .classList
+    .toggle('open');
+}
 
-    function renderTzList(filter = "") {
-      tzList.innerHTML = "";
-      allTimezones.filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase())).forEach(tz => {
-        const div = document.createElement('div');
-        div.className = 'tz-option';
-        div.textContent = tz.display;
-        div.onclick = () => {
-          selectedTz = tz.name;
-          document.getElementById('tzDisplay').textContent = tz.display;
-          toggleMenu();
-        };
-        tzList.appendChild(div);
-      });
-    }
+/* GMT OFFSETS + LOCATIONS */
 
-    tzSearch.addEventListener('input', (e) => renderTzList(e.target.value));
-    renderTzList();
+const timezoneLocations = {
+  "-12": "Baker Island",
+  "-11": "American Samoa",
+  "-10": "Hawaii",
+  "-9": "Alaska",
+  "-8": "Los Angeles",
+  "-7": "Denver",
+  "-6": "Chicago",
+  "-5": "New York",
+  "-4": "Santiago",
+  "-3": "Buenos Aires",
+  "-2": "South Georgia",
+  "-1": "Azores",
+  "0": "London",
+  "1": "Berlin",
+  "2": "Cairo",
+  "3": "Moscow",
+  "4": "Dubai",
+  "5": "Karachi",
+  "6": "Dhaka",
+  "7": "Bangkok",
+  "8": "Singapore",
+  "9": "Tokyo",
+  "10": "Sydney",
+  "11": "Noumea",
+  "12": "Auckland",
+  "13": "Samoa",
+  "14": "Kiritimati"
+};
 
-    worker.onmessage = (e) => {
-      const nowRaw = e.data.now;
-      const nowObj = new Date(nowRaw);
-      
-      const milliseconds = nowObj.getMilliseconds();
-      
-      const tzString = nowObj.toLocaleString("en-GB", {
-        timeZone: selectedTz,
-        hour12: false
-      });
+const allTimezones = [];
 
-      const tzTime = new Date(tzString);
-      
-      document.getElementById('dateRow').textContent = tzTime.toLocaleDateString('sv-SE').replace(/-/g, ' ');
-      
-      const msStr = String(milliseconds).padStart(3, '0');
-      const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
-      
-      const parts = tzString.split(', ')[1].split(' ');
-      document.getElementById('timeRow').innerHTML = `${parts[0]}.${msStr} <span class="subnano">${nano}</span>`;
-      
-      const analogDate = new Date(tzTime.getTime());
-      analogDate.setMilliseconds(milliseconds);
-      drawAnalog(analogDate);
-    };
+for(let i = -12; i <= 14; i++) {
 
-    function drawAnalog(d) {
-      ctx.clearRect(0, 0, 440, 440);
-      ctx.save();
-      ctx.translate(220, 220);
-      const fg = getComputedStyle(document.body).getPropertyValue("--text").trim();
-      ctx.strokeStyle = fg;
-      for(let i=0; i<12; i++) {
-        ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth=4; ctx.stroke(); ctx.rotate(Math.PI/6);
-      }
-      const s = d.getSeconds() + d.getMilliseconds()/1000;
-      const m = d.getMinutes() + s/60;
-      const h = (d.getHours() % 12) + m/60;
-      const drawHand = (angle, len, width, color) => {
-        ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(0,10); ctx.lineTo(0,-len);
-        ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+  const sign =
+    i >= 0 ? "+" : "-";
+
+  const val =
+    Math.abs(i);
+
+  const name =
+    `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
+
+  const location =
+    timezoneLocations[String(i)] || "Unknown";
+
+  const display =
+    `GMT${sign}${val} / ${location}`;
+
+  allTimezones.push({
+    name,
+    display
+  });
+}
+
+const tzList =
+  document.getElementById('tzList');
+
+const tzSearch =
+  document.getElementById('tzSearch');
+
+function renderTzList(filter = "") {
+
+  tzList.innerHTML = "";
+
+  allTimezones
+    .filter(tz =>
+      tz.display
+        .toLowerCase()
+        .includes(filter.toLowerCase())
+    )
+    .forEach(tz => {
+
+      const div =
+        document.createElement('div');
+
+      div.className =
+        'tz-option';
+
+      div.textContent =
+        tz.display;
+
+      div.onclick = () => {
+
+        selectedTz =
+          tz.name;
+
+        document.getElementById('tzDisplay')
+          .textContent =
+            tz.display;
+
+        toggleMenu();
       };
-      drawHand(h * Math.PI/6, 120, 10, fg);
-      drawHand(m * Math.PI/30, 170, 6, fg);
-      drawHand(s * Math.PI/30, 190, 3, "#E74C3C");
-      ctx.restore();
-    }
 
-    const toggle = document.getElementById("themeToggle");
-    toggle.onclick = () => {
-      document.body.classList.toggle("dark");
-      toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
+      tzList.appendChild(div);
+    });
+}
+
+tzSearch.addEventListener(
+  'input',
+  (e) => renderTzList(e.target.value)
+);
+
+renderTzList();
+
+/* CLOCK UPDATE */
+
+worker.onmessage = (e) => {
+
+  const nowRaw =
+    e.data.now;
+
+  const nowObj =
+    new Date(nowRaw);
+
+  const milliseconds =
+    nowObj.getMilliseconds();
+
+  const formatter =
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: selectedTz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false
+    });
+
+  const parts =
+    formatter.formatToParts(nowObj);
+
+  const get = (type) =>
+    parts.find(p => p.type === type)?.value || "00";
+
+  const year =
+    get("year");
+
+  const month =
+    get("month");
+
+  const day =
+    get("day");
+
+  const hour =
+    get("hour");
+
+  const minute =
+    get("minute");
+
+  const second =
+    get("second");
+
+  document.getElementById('dateRow')
+    .textContent =
+      `${year} ${month} ${day}`;
+
+  const msStr =
+    String(milliseconds)
+      .padStart(3, '0');
+
+  const nano =
+    Math.floor(Math.random() * 999999)
+      .toString()
+      .padStart(6, '0');
+
+  document.getElementById('timeRow')
+    .innerHTML =
+      `${hour}:${minute}:${second}.${msStr}
+      <span class="subnano">${nano}</span>`;
+
+  const analogDate =
+    new Date(
+      nowObj.toLocaleString("en-US", {
+        timeZone: selectedTz
+      })
+    );
+
+  analogDate.setMilliseconds(milliseconds);
+
+  drawAnalog(analogDate);
+};
+
+/* ANALOG CLOCK */
+
+function drawAnalog(d) {
+
+  ctx.clearRect(0, 0, 440, 440);
+
+  ctx.save();
+
+  ctx.translate(220, 220);
+
+  const fg =
+    getComputedStyle(document.body)
+      .getPropertyValue("--text")
+      .trim();
+
+  ctx.strokeStyle = fg;
+
+  for(let i = 0; i < 12; i++) {
+
+    ctx.beginPath();
+
+    ctx.moveTo(0, -190);
+
+    ctx.lineTo(0, -210);
+
+    ctx.lineWidth = 4;
+
+    ctx.stroke();
+
+    ctx.rotate(Math.PI / 6);
+  }
+
+  const s =
+    d.getSeconds() +
+    d.getMilliseconds() / 1000;
+
+  const m =
+    d.getMinutes() +
+    s / 60;
+
+  const h =
+    (d.getHours() % 12) +
+    m / 60;
+
+  const drawHand =
+    (angle, len, width, color) => {
+
+      ctx.save();
+
+      ctx.rotate(angle);
+
+      ctx.beginPath();
+
+      ctx.moveTo(0, 10);
+
+      ctx.lineTo(0, -len);
+
+      ctx.strokeStyle = color;
+
+      ctx.lineWidth = width;
+
+      ctx.lineCap = "round";
+
+      ctx.stroke();
+
+      ctx.restore();
     };
-    
-    syncTime();
-    requestWakeLock();
-  </script>
+
+  drawHand(
+    h * Math.PI / 6,
+    120,
+    10,
+    fg
+  );
+
+  drawHand(
+    m * Math.PI / 30,
+    170,
+    6,
+    fg
+  );
+
+  drawHand(
+    s * Math.PI / 30,
+    190,
+    3,
+    "#E74C3C"
+  );
+
+  ctx.restore();
+}
+
+/* THEME */
+
+const toggle =
+  document.getElementById("themeToggle");
+
+toggle.onclick = () => {
+
+  document.body
+    .classList
+    .toggle("dark");
+
+  toggle.textContent =
+    document.body.classList.contains("dark")
+      ? "☀"
+      : "☾";
+};
+
+syncTime();
+
+requestWakeLock();
+</script>
+
 </body>
 </html>
