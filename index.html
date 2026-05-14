@@ -214,6 +214,7 @@ const tzToggleLink = document.getElementById('tzToggleLink');
 let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let wakeLock = null;
 
+// Worker now sends back the performance timestamp to calculate precise deltas
 const workerCode = `
   let offset = 0;
   self.onmessage = (e) => {
@@ -223,7 +224,8 @@ const workerCode = `
   };
   setInterval(() => {
     const now = Date.now() + offset;
-    self.postMessage({ type: 'tick', now });
+    // We send the 'perf' timestamp so the main thread can interpolate nanoseconds
+    self.postMessage({ type: 'tick', now, perf: performance.now() });
   }, 16);
 `;
 
@@ -242,7 +244,6 @@ async function syncTime() {
   } catch(e) {}
 }
 
-// Fixed bfcache issue by closing/reopening channel
 window.addEventListener('pagehide', (e) => {
   if (bc) {
     bc.close();
@@ -326,8 +327,10 @@ renderTzList();
 
 worker.onmessage = (e) => {
   const nowRaw = e.data.now;
+  const perfTimestamp = e.data.perf;
   const nowObj = new Date(nowRaw);
   const milliseconds = nowObj.getMilliseconds();
+  
   const formatter = new Intl.DateTimeFormat("en-GB", {
       timeZone: selectedTz,
       year: "numeric", month: "2-digit", day: "2-digit",
@@ -340,7 +343,12 @@ worker.onmessage = (e) => {
 
   document.getElementById('dateRow').textContent = `${get("year")} ${get("month")} ${get("day")}`;
   const msStr = String(milliseconds).padStart(3, '0');
-  const nano = Math.floor(Math.random() * 999999).toString().padStart(6, '0');
+  
+  // ACTUAL HIGH-RESOLUTION CALCULATION:
+  // We take the fractional part of performance.now() which represents 
+  // microseconds and nanoseconds since the last millisecond.
+  const highResFraction = (perfTimestamp % 1).toFixed(6).substring(2);
+  const nano = highResFraction.padEnd(6, '0');
 
   document.getElementById('timeRow').innerHTML = 
       `${get("hour")}:${get("minute")}:${get("second")}.${msStr} <span class="subnano">${nano}</span>`;
