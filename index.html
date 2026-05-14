@@ -208,7 +208,7 @@
 <script>
 const canvas = document.getElementById("analogClock");
 const ctx = canvas.getContext("2d");
-const bc = new BroadcastChannel('clock_sync');
+let bc = new BroadcastChannel('clock_sync');
 const tzToggleLink = document.getElementById('tzToggleLink');
 
 let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -238,22 +238,37 @@ async function syncTime() {
     const rtt = performance.now() - t0;
     const serverOffset = (d.epoch + (rtt / 2)) - Date.now();
     worker.postMessage({ type: 'sync', offset: serverOffset });
-    bc.postMessage({ type: 'offset_share', offset: serverOffset });
+    if (bc) bc.postMessage({ type: 'offset_share', offset: serverOffset });
   } catch(e) {}
 }
 
+// Fixed bfcache issue by closing/reopening channel
+window.addEventListener('pagehide', (e) => {
+  if (bc) {
+    bc.close();
+    bc = null;
+  }
+});
+
 document.addEventListener('visibilitychange', () => {
     if(document.visibilityState === 'visible') {
+      if (!bc) {
+        bc = new BroadcastChannel('clock_sync');
+        setupBC();
+      }
       syncTime();
       requestWakeLock();
     }
 });
 
-bc.onmessage = (e) => {
-  if(e.data.type === 'offset_share') {
-    worker.postMessage({ type: 'sync', offset: e.data.offset });
-  }
-};
+function setupBC() {
+  bc.onmessage = (e) => {
+    if(e.data.type === 'offset_share') {
+      worker.postMessage({ type: 'sync', offset: e.data.offset });
+    }
+  };
+}
+setupBC();
 
 async function requestWakeLock() {
   try {
@@ -270,7 +285,6 @@ function toggleMenu(e) {
 
 tzToggleLink.addEventListener('click', toggleMenu);
 
-/* GMT OFFSETS + LOCATIONS */
 const timezoneLocations = {
   "-12": "Baker Island", "-11": "American Samoa", "-10": "Hawaii", "-9": "Alaska", "-8": "Los Angeles", "-7": "Denver", "-6": "Chicago", "-5": "New York", "-4": "Santiago", "-3": "Buenos Aires", "-2": "South Georgia", "-1": "Azores", "0": "London", "1": "Berlin", "2": "Cairo", "3": "Moscow", "4": "Dubai", "5": "Karachi", "6": "Dhaka", "7": "Bangkok", "8": "Singapore", "9": "Tokyo", "10": "Sydney", "11": "Noumea", "12": "Auckland", "13": "Samoa", "14": "Kiritimati"
 };
@@ -290,6 +304,7 @@ const tzSearch = document.getElementById('tzSearch');
 
 function renderTzList(filter = "") {
   tzList.innerHTML = "";
+  const fragment = document.createDocumentFragment();
   allTimezones
     .filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase()))
     .forEach(tz => {
@@ -301,14 +316,14 @@ function renderTzList(filter = "") {
         document.getElementById('tzDisplay').textContent = tz.display;
         toggleMenu();
       };
-      tzList.appendChild(div);
+      fragment.appendChild(div);
     });
+  tzList.appendChild(fragment);
 }
 
 tzSearch.addEventListener('input', (e) => renderTzList(e.target.value));
 renderTzList();
 
-/* CLOCK UPDATE */
 worker.onmessage = (e) => {
   const nowRaw = e.data.now;
   const nowObj = new Date(nowRaw);
