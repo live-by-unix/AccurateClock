@@ -8,7 +8,7 @@
   <link rel="apple-touch-icon" href="/icon-192.png">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AccurateClock | A amazing clock</title>
+  <title>AccurateClock | An amazing clock</title>
   <style>
     :root {
       --bg: #F4F4F4;
@@ -169,59 +169,68 @@ let bc = new BroadcastChannel('clock_sync');
 const tzToggleLink = document.getElementById('tzToggleLink');
 let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let wakeLock = null;
-let serverOffset = 0;
-const workerCode = `
-  let offset = 0;
-  self.onmessage = (e) => {
-    if(e.data.type === 'sync') offset = e.data.offset;
-  };
-  setInterval(() => {
-    const now = Date.now() + offset;
-    self.postMessage({ type: 'tick', now, perf: performance.now() });
-  }, 100);
-`;
-const blob = new Blob([workerCode], { type: 'application/javascript' });
-const worker = new Worker(URL.createObjectURL(blob));
+
+let anchorServerTime = Date.now();
+let anchorPerfTime = performance.now();
+let currentOffsetHours = 0;
+
 async function syncTime() {
   try {
     const t0 = performance.now();
     const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", { cache: "no-store" });
     const d = await r.json();
-    const rtt = performance.now() - t0;
-    serverOffset = (d.epoch + (rtt / 2)) - Date.now();
-    worker.postMessage({ type: 'sync', offset: serverOffset });
-    if (bc) bc.postMessage({ type: 'offset_share', offset: serverOffset });
+    const t1 = performance.now();
+    
+    const rtt = t1 - t0;
+    const oneWayLatency = rtt / 2;
+    
+    anchorServerTime = d.epoch + oneWayLatency;
+    anchorPerfTime = t1;
+
+    if (bc) {
+      bc.postMessage({ 
+        type: 'offset_share', 
+        anchorServerTime, 
+        anchorPerfTime 
+      });
+    }
   } catch(e) {}
 }
-window.addEventListener('pagehide', () => {
-  if (bc) { bc.close(); bc = null; }
+
+function setupBC() {
+  bc.onmessage = (e) => {
+    if (e.data.type === 'offset_share') {
+      anchorServerTime = e.data.anchorServerTime;
+      anchorPerfTime = e.data.anchorPerfTime;
+    }
+  };
+}
+setupBC();
+
+window.addEventListener('pagehide', () => { 
+  if (bc) { bc.close(); bc = null; } 
 });
+
 document.addEventListener('visibilitychange', () => {
-  if(document.visibilityState === 'visible') {
+  if (document.visibilityState === 'visible') {
     if (!bc) { bc = new BroadcastChannel('clock_sync'); setupBC(); }
     syncTime();
     requestWakeLock();
   }
 });
-function setupBC() {
-  bc.onmessage = (e) => {
-    if(e.data.type === 'offset_share') {
-      serverOffset = e.data.offset;
-      worker.postMessage({ type: 'sync', offset: serverOffset });
-    }
-  };
-}
-setupBC();
+
 async function requestWakeLock() {
-  try {
-    if('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
+  try { 
+    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); 
   } catch(err) {}
 }
+
 function toggleMenu(e) {
   if (e) e.preventDefault();
   document.getElementById('tzMenu').classList.toggle('open');
 }
 tzToggleLink.addEventListener('click', toggleMenu);
+
 const timezoneLocations = {"-12": "Baker Island", "-11": "American Samoa", "-10": "Hawaii", "-9": "Alaska", "-8": "Los Angeles", "-7": "Denver", "-6": "Chicago", "-5": "New York", "-4": "Santiago", "-3": "Buenos Aires", "-2": "South Georgia", "-1": "Azores", "0": "London", "1": "Berlin", "2": "Cairo", "3": "Moscow", "4": "Dubai", "5": "Karachi", "6": "Dhaka", "7": "Bangkok", "8": "Singapore", "9": "Tokyo", "10": "Sydney", "11": "Noumea", "12": "Auckland", "13": "Samoa", "14": "Kiritimati"};
 const allTimezones = [];
 for(let i = -12; i <= 14; i++) {
@@ -229,10 +238,12 @@ for(let i = -12; i <= 14; i++) {
   const val = Math.abs(i);
   const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
   const location = timezoneLocations[String(i)] || "Unknown";
-  allTimezones.push({ name, display: `GMT${sign}${val} / ${location}` });
+  allTimezones.push({ name, offset: i, display: `GMT${sign}${val} / ${location}` });
 }
+
 const tzList = document.getElementById('tzList');
 const tzSearch = document.getElementById('tzSearch');
+
 function renderTzList(filter = "") {
   tzList.innerHTML = "";
   const fragment = document.createDocumentFragment();
@@ -242,6 +253,7 @@ function renderTzList(filter = "") {
     div.textContent = tz.display;
     div.onclick = () => {
       selectedTz = tz.name;
+      currentOffsetHours = tz.offset;
       document.getElementById('tzDisplay').textContent = tz.display;
       toggleMenu();
     };
@@ -251,25 +263,32 @@ function renderTzList(filter = "") {
 }
 tzSearch.addEventListener('input', (e) => renderTzList(e.target.value));
 renderTzList();
+
 function clockLoop() {
-  const curPerf = performance.now();
-  const curTime = new Date(Date.now() + serverOffset);
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    timeZone: selectedTz,
-    year: "numeric", month: "2-digit", day: "2-digit",
-    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
-  });
-  const parts = formatter.formatToParts(curTime);
-  const get = (type) => parts.find(p => p.type === type)?.value || "00";
-  const ms = String(curTime.getMilliseconds()).padStart(3, '0');
-  const nano = String(Math.floor((curPerf % 1) * 1000000)).padStart(6, '0');
-  document.getElementById('dateRow').textContent = `${get("year")} ${get("month")} ${get("day")}`;
-  document.getElementById('timeRow').innerHTML = `${get("hour")}:${get("minute")}:${get("second")}.${ms} <span class="subnano">${nano}</span>`;
-  const analogDate = new Date(curTime.toLocaleString("en-US", { timeZone: selectedTz }));
-  analogDate.setMilliseconds(curTime.getMilliseconds());
-  drawAnalog(analogDate);
+  const nowPerf = performance.now();
+  const msPassedSinceSync = nowPerf - anchorPerfTime;
+  const targetTimeMs = anchorServerTime + msPassedSinceSync;
+  
+  const localOffsetMs = new Date().getTimezoneOffset() * 60000;
+  const tzOffsetMs = currentOffsetHours * 3600000;
+  const tzTime = new Date(targetTimeMs + localOffsetMs + tzOffsetMs);
+
+  const year = tzTime.getFullYear();
+  const month = String(tzTime.getMonth() + 1).padStart(2, '0');
+  const day = String(tzTime.getDate()).padStart(2, '0');
+  const hours = String(tzTime.getHours()).padStart(2, '0');
+  const minutes = String(tzTime.getMinutes()).padStart(2, '0');
+  const seconds = String(tzTime.getSeconds()).padStart(2, '0');
+  const ms = String(tzTime.getMilliseconds()).padStart(3, '0');
+  const micro = String(Math.floor((msPassedSinceSync % 1) * 1000000)).padStart(6, '0');
+
+  document.getElementById('dateRow').textContent = `${year}-${month}-${day}`;
+  document.getElementById('timeRow').innerHTML = `${hours}:${minutes}:${seconds}.${ms} <span class="subnano">${micro}</span>`;
+
+  drawAnalog(tzTime);
   requestAnimationFrame(clockLoop);
 }
+
 function drawAnalog(d) {
   ctx.clearRect(0, 0, 440, 440);
   ctx.save();
@@ -290,11 +309,13 @@ function drawAnalog(d) {
   drawHand(s * Math.PI / 30, 190, 3, "#E74C3C");
   ctx.restore();
 }
+
 const toggle = document.getElementById("themeToggle");
 toggle.onclick = () => {
   document.body.classList.toggle("dark");
   toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
 };
+
 syncTime();
 requestWakeLock();
 requestAnimationFrame(clockLoop);
