@@ -172,7 +172,7 @@ let wakeLock = null;
 
 let anchorServerTime = Date.now();
 let anchorPerfTime = performance.now();
-let currentOffsetHours = 0;
+let currentOffsetHours = -new Date().getTimezoneOffset() / 60;
 
 async function syncTime() {
   try {
@@ -273,7 +273,6 @@ function clockLoop() {
   const tzOffsetMs = currentOffsetHours * 3600000;
   const tzTime = new Date(targetTimeMs + localOffsetMs + tzOffsetMs);
 
-  // CHANGED TO UTC METHODS SO MANUAL MILLISECOND SHIFTS DON'T DOUBLE-TRIGGER THE BROWSER'S LOCAL TIMEZONE
   const year = tzTime.getUTCFullYear();
   const month = String(tzTime.getUTCMonth() + 1).padStart(2, '0');
   const day = String(tzTime.getUTCDate()).padStart(2, '0');
@@ -299,7 +298,6 @@ function drawAnalog(d) {
   for(let i = 0; i < 12; i++) {
     ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth = 4; ctx.stroke(); ctx.rotate(Math.PI / 6);
   }
-
   const s = d.getUTCSeconds() + d.getUTCMilliseconds() / 1000;
   const m = d.getUTCMinutes() + s / 60;
   const h = (d.getUTCHours() % 12) + m / 60;
