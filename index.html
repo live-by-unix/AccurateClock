@@ -273,13 +273,14 @@ function clockLoop() {
   const tzOffsetMs = currentOffsetHours * 3600000;
   const tzTime = new Date(targetTimeMs + localOffsetMs + tzOffsetMs);
 
-  const year = tzTime.getFullYear();
-  const month = String(tzTime.getMonth() + 1).padStart(2, '0');
-  const day = String(tzTime.getDate()).padStart(2, '0');
-  const hours = String(tzTime.getHours()).padStart(2, '0');
-  const minutes = String(tzTime.getMinutes()).padStart(2, '0');
-  const seconds = String(tzTime.getSeconds()).padStart(2, '0');
-  const ms = String(tzTime.getMilliseconds()).padStart(3, '0');
+  // CHANGED TO UTC METHODS SO MANUAL MILLISECOND SHIFTS DON'T DOUBLE-TRIGGER THE BROWSER'S LOCAL TIMEZONE
+  const year = tzTime.getUTCFullYear();
+  const month = String(tzTime.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(tzTime.getUTCDate()).padStart(2, '0');
+  const hours = String(tzTime.getUTCHours()).padStart(2, '0');
+  const minutes = String(tzTime.getUTCMinutes()).padStart(2, '0');
+  const seconds = String(tzTime.getUTCSeconds()).padStart(2, '0');
+  const ms = String(tzTime.getUTCMilliseconds()).padStart(3, '0');
   const micro = String(Math.floor((msPassedSinceSync % 1) * 1000000)).padStart(6, '0');
 
   document.getElementById('dateRow').textContent = `${year}-${month}-${day}`;
@@ -298,9 +299,10 @@ function drawAnalog(d) {
   for(let i = 0; i < 12; i++) {
     ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth = 4; ctx.stroke(); ctx.rotate(Math.PI / 6);
   }
-  const s = d.getSeconds() + d.getMilliseconds() / 1000;
-  const m = d.getMinutes() + s / 60;
-  const h = (d.getHours() % 12) + m / 60;
+
+  const s = d.getUTCSeconds() + d.getUTCMilliseconds() / 1000;
+  const m = d.getUTCMinutes() + s / 60;
+  const h = (d.getUTCHours() % 12) + m / 60;
   const drawHand = (angle, len, width, color) => {
     ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -len); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
   };
