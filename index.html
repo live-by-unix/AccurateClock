@@ -172,7 +172,6 @@ let wakeLock = null;
 
 let anchorServerTime = Date.now();
 let anchorPerfTime = performance.now();
-let currentOffsetHours = -new Date().getTimezoneOffset() / 60;
 
 async function syncTime() {
   try {
@@ -253,7 +252,6 @@ function renderTzList(filter = "") {
     div.textContent = tz.display;
     div.onclick = () => {
       selectedTz = tz.name;
-      currentOffsetHours = tz.offset;
       document.getElementById('tzDisplay').textContent = tz.display;
       toggleMenu();
     };
@@ -269,27 +267,30 @@ function clockLoop() {
   const msPassedSinceSync = nowPerf - anchorPerfTime;
   const targetTimeMs = anchorServerTime + msPassedSinceSync;
   
-  const localOffsetMs = new Date().getTimezoneOffset() * 60000;
-  const tzOffsetMs = currentOffsetHours * 3600000;
-  const tzTime = new Date(targetTimeMs + localOffsetMs + tzOffsetMs);
+  const tzTime = new Date(targetTimeMs);
 
-  const year = tzTime.getUTCFullYear();
-  const month = String(tzTime.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(tzTime.getUTCDate()).padStart(2, '0');
-  const hours = String(tzTime.getUTCHours()).padStart(2, '0');
-  const minutes = String(tzTime.getUTCMinutes()).padStart(2, '0');
-  const seconds = String(tzTime.getUTCSeconds()).padStart(2, '0');
-  const ms = String(tzTime.getUTCMilliseconds()).padStart(3, '0');
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: selectedTz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  });
+
+  const parts = formatter.formatToParts(tzTime);
+  const p = {};
+  parts.forEach(part => p[part.type] = part.value);
+
+  const ms = String(tzTime.getMilliseconds()).padStart(3, '0');
   const micro = String(Math.floor((msPassedSinceSync % 1) * 1000000)).padStart(6, '0');
 
-  document.getElementById('dateRow').textContent = `${year}-${month}-${day}`;
-  document.getElementById('timeRow').innerHTML = `${hours}:${minutes}:${seconds}.${ms} <span class="subnano">${micro}</span>`;
+  document.getElementById('dateRow').textContent = `${p.year}-${p.month}-${p.day}`;
+  document.getElementById('timeRow').innerHTML = `${p.hour}:${p.minute}:${p.second}.${ms} <span class="subnano">${micro}</span>`;
 
-  drawAnalog(tzTime);
+  drawAnalog(Number(p.hour), Number(p.minute), Number(p.second), tzTime.getMilliseconds());
   requestAnimationFrame(clockLoop);
 }
 
-function drawAnalog(d) {
+function drawAnalog(h, m, s, msValue) {
   ctx.clearRect(0, 0, 440, 440);
   ctx.save();
   ctx.translate(220, 220);
@@ -298,15 +299,15 @@ function drawAnalog(d) {
   for(let i = 0; i < 12; i++) {
     ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth = 4; ctx.stroke(); ctx.rotate(Math.PI / 6);
   }
-  const s = d.getUTCSeconds() + d.getUTCMilliseconds() / 1000;
-  const m = d.getUTCMinutes() + s / 60;
-  const h = (d.getUTCHours() % 12) + m / 60;
+  const exactS = s + msValue / 1000;
+  const exactM = m + exactS / 60;
+  const exactH = (h % 12) + exactM / 60;
   const drawHand = (angle, len, width, color) => {
     ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -len); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
   };
-  drawHand(h * Math.PI / 6, 120, 10, fg);
-  drawHand(m * Math.PI / 30, 170, 6, fg);
-  drawHand(s * Math.PI / 30, 190, 3, "#E74C3C");
+  drawHand(exactH * Math.PI / 6, 120, 10, fg);
+  drawHand(exactM * Math.PI / 30, 170, 6, fg);
+  drawHand(exactS * Math.PI / 30, 190, 3, "#E74C3C");
   ctx.restore();
 }
 
