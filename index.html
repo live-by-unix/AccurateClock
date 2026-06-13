@@ -10,6 +10,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AccurateClock | An amazing clock</title>
+  
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "AccurateClock",
+    "url": "https://accurateclock.pages.dev/",
+    "applicationCategory": "UtilityApplication",
+    "operatingSystem": "All"
+  }
+  </script>
+
   <style>
     :root {
       --bg: #F4F4F4;
@@ -136,6 +148,17 @@
     .tz-option:hover {
       background: var(--border);
     }
+    /* Accessible and clean visually hidden style for H1 SEO robot tracking */
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
     @media (max-width: 768px) {
       .wrapper {
         flex-direction: column;
@@ -147,6 +170,8 @@
 <body>
 <button class="theme-toggle" id="themeToggle">☾</button>
 <main class="wrapper">
+  <h1 class="visually-hidden">AccurateClock - High Precision Online Atomic Clock</h1>
+  
   <div class="clock-block">
     <div id="dateRow" class="date-row">---- -- --</div>
     <div id="timeRow" class="time-row">
