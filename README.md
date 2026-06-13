@@ -1,6 +1,9 @@
 ## AccurateClock    
 **This README covers tech stack, usage, and PWA support, along with licensing**
 
+## If you were here for the link, it's below. 
+🌐 [Click here to use the Live Clock!](https://accurateclock.pages.dev)
+
 ## Tech stack
 AccurateClock relies on cloudflare workers to deliver precision, as well as using vanilla HTML/CSS/JS to build the thing. 
 **No frameworks like Astro, Node.js or Svelte are used.**    
