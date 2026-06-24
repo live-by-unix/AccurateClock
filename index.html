@@ -196,30 +196,40 @@ const tzToggleLink = document.getElementById('tzToggleLink');
 let selectedTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 let wakeLock = null;
 
+// anchorServerTime = "what the server said 'now' was"
+// anchorPerfTime   = "what performance.now() was when we heard that"
 let anchorServerTime = Date.now();
 let anchorPerfTime = performance.now();
 
 async function syncTime() {
   try {
     const t0 = performance.now();
-    const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", { cache: "no-store" });
-    const d = await r.json();
+    const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", {
+      cache: "no-store"
+    });
     const t1 = performance.now();
-    
+    const d = await r.json();
+
+    // Prefer server-reported latency if present, else fall back to RTT/2
     const rtt = t1 - t0;
-    const oneWayLatency = rtt / 2;
-    
-    anchorServerTime = d.epoch + oneWayLatency;
+    const oneWayLatency = (d.latency_ms && d.latency_ms >= 0)
+      ? d.latency_ms / 2
+      : rtt / 2;
+
+    // epoch_ms is the canonical server time
+    anchorServerTime = d.epoch_ms + oneWayLatency;
     anchorPerfTime = t1;
 
     if (bc) {
-      bc.postMessage({ 
-        type: 'offset_share', 
-        anchorServerTime, 
-        anchorPerfTime 
+      bc.postMessage({
+        type: 'offset_share',
+        anchorServerTime,
+        anchorPerfTime
       });
     }
-  } catch(e) {}
+  } catch (e) {
+    // stay silent on failure; we keep using last good anchor
+  }
 }
 
 function setupBC() {
@@ -232,8 +242,8 @@ function setupBC() {
 }
 setupBC();
 
-window.addEventListener('pagehide', () => { 
-  if (bc) { bc.close(); bc = null; } 
+window.addEventListener('pagehide', () => {
+  if (bc) { bc.close(); bc = null; }
 });
 
 document.addEventListener('visibilitychange', () => {
@@ -245,9 +255,11 @@ document.addEventListener('visibilitychange', () => {
 });
 
 async function requestWakeLock() {
-  try { 
-    if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen'); 
-  } catch(err) {}
+  try {
+    if ('wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+    }
+  } catch (err) {}
 }
 
 function toggleMenu(e) {
@@ -258,7 +270,7 @@ tzToggleLink.addEventListener('click', toggleMenu);
 
 const timezoneLocations = {"-12": "Baker Island", "-11": "American Samoa", "-10": "Hawaii", "-9": "Alaska", "-8": "Los Angeles", "-7": "Denver", "-6": "Chicago", "-5": "New York", "-4": "Santiago", "-3": "Buenos Aires", "-2": "South Georgia", "-1": "Azores", "0": "London", "1": "Berlin", "2": "Cairo", "3": "Moscow", "4": "Dubai", "5": "Karachi", "6": "Dhaka", "7": "Bangkok", "8": "Singapore", "9": "Tokyo", "10": "Sydney", "11": "Noumea", "12": "Auckland", "13": "Samoa", "14": "Kiritimati"};
 const allTimezones = [];
-for(let i = -12; i <= 14; i++) {
+for (let i = -12; i <= 14; i++) {
   const sign = i >= 0 ? "+" : "-";
   const val = Math.abs(i);
   const name = `Etc/GMT${i >= 0 ? "-" : "+"}${val}`;
@@ -272,17 +284,19 @@ const tzSearch = document.getElementById('tzSearch');
 function renderTzList(filter = "") {
   tzList.innerHTML = "";
   const fragment = document.createDocumentFragment();
-  allTimezones.filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase())).forEach(tz => {
-    const div = document.createElement('div');
-    div.className = 'tz-option';
-    div.textContent = tz.display;
-    div.onclick = () => {
-      selectedTz = tz.name;
-      document.getElementById('tzDisplay').textContent = tz.display;
-      toggleMenu();
-    };
-    fragment.appendChild(div);
-  });
+  allTimezones
+    .filter(tz => tz.display.toLowerCase().includes(filter.toLowerCase()))
+    .forEach(tz => {
+      const div = document.createElement('div');
+      div.className = 'tz-option';
+      div.textContent = tz.display;
+      div.onclick = () => {
+        selectedTz = tz.name;
+        document.getElementById('tzDisplay').textContent = tz.display;
+        toggleMenu();
+      };
+      fragment.appendChild(div);
+    });
   tzList.appendChild(fragment);
 }
 tzSearch.addEventListener('input', (e) => renderTzList(e.target.value));
@@ -292,7 +306,7 @@ function clockLoop() {
   const nowPerf = performance.now();
   const msPassedSinceSync = nowPerf - anchorPerfTime;
   const targetTimeMs = anchorServerTime + msPassedSinceSync;
-  
+
   const tzTime = new Date(targetTimeMs);
 
   const formatter = new Intl.DateTimeFormat('en-US', {
@@ -310,7 +324,8 @@ function clockLoop() {
   const micro = String(Math.floor((msPassedSinceSync % 1) * 1000000)).padStart(6, '0');
 
   document.getElementById('dateRow').textContent = `${p.year}-${p.month}-${p.day}`;
-  document.getElementById('timeRow').innerHTML = `${p.hour}:${p.minute}:${p.second}.${ms} <span class="subnano">${micro}</span>`;
+  document.getElementById('timeRow').innerHTML =
+    `${p.hour}:${p.minute}:${p.second}.${ms} <span class="subnano">${micro}</span>`;
 
   drawAnalog(Number(p.hour), Number(p.minute), Number(p.second), tzTime.getMilliseconds());
   requestAnimationFrame(clockLoop);
@@ -322,15 +337,33 @@ function drawAnalog(h, m, s, msValue) {
   ctx.translate(220, 220);
   const fg = getComputedStyle(document.body).getPropertyValue("--text").trim();
   ctx.strokeStyle = fg;
-  for(let i = 0; i < 12; i++) {
-    ctx.beginPath(); ctx.moveTo(0, -190); ctx.lineTo(0, -210); ctx.lineWidth = 4; ctx.stroke(); ctx.rotate(Math.PI / 6);
+
+  for (let i = 0; i < 12; i++) {
+    ctx.beginPath();
+    ctx.moveTo(0, -190);
+    ctx.lineTo(0, -210);
+    ctx.lineWidth = 4;
+    ctx.stroke();
+    ctx.rotate(Math.PI / 6);
   }
+
   const exactS = s + msValue / 1000;
   const exactM = m + exactS / 60;
   const exactH = (h % 12) + exactM / 60;
+
   const drawHand = (angle, len, width, color) => {
-    ctx.save(); ctx.rotate(angle); ctx.beginPath(); ctx.moveTo(0, 10); ctx.lineTo(0, -len); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.lineCap = "round"; ctx.stroke(); ctx.restore();
+    ctx.save();
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 10);
+    ctx.lineTo(0, -len);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width;
+    ctx.lineCap = "round";
+    ctx.stroke();
+    ctx.restore();
   };
+
   drawHand(exactH * Math.PI / 6, 120, 10, fg);
   drawHand(exactM * Math.PI / 30, 170, 6, fg);
   drawHand(exactS * Math.PI / 30, 190, 3, "#E74C3C");
