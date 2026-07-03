@@ -1,5 +1,5 @@
 ## AccurateClock    
-**This README covers tech stack, usage, and PWA support, along with API, seeing worker code, and licensing**
+**This README covers tech stack, usage, and PWA support, along with a API & Chrome Extenson, seeing worker code, and licensing**
   
 ## If you were here for the link, it's below. 
 🌐 [Click here to use the Live Clock!](https://accurateclock.pages.dev)        
@@ -20,6 +20,7 @@ This perfectly supports PWA, service workers, sitemap.xml, and robots.txt.
 
 ## API
 If you want a API click [here](https://github.com/live-by-unix/AccurateClock-API) to visit API GitHub   
+If you want a Chrome extension click [here](https://github.com/live-by-unix/AccurateClock-Extension)
 
 
 ## See worker code
