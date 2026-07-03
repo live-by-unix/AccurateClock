@@ -371,9 +371,22 @@ function drawAnalog(h, m, s, msValue) {
 }
 
 const toggle = document.getElementById("themeToggle");
+
+// Restore saved theme
+const savedTheme = localStorage.getItem("theme");
+if (savedTheme === "dark") {
+  document.body.classList.add("dark");
+}
+toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
+
+// Toggle + save theme
 toggle.onclick = () => {
   document.body.classList.toggle("dark");
-  toggle.textContent = document.body.classList.contains("dark") ? "☀" : "☾";
+
+  const isDark = document.body.classList.contains("dark");
+  toggle.textContent = isDark ? "☀" : "☾";
+
+  localStorage.setItem("theme", isDark ? "dark" : "light");
 };
 
 syncTime();
