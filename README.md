@@ -28,4 +28,4 @@ To see the worker code, visit ```worker.js```
 You can see the code for yourselves to check if legit (I support this), or just see all the code.   
 
 ## Licensing
-BSD-3-CLAUSE    
+BSD-3-CLAUSE [LICENSE](LICENSE)       
