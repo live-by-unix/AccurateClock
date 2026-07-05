@@ -178,7 +178,9 @@
       --:--:--.---
       <span class="subnano">000000</span>
     </div>
-    <div id="tzDisplay" style="font-size: 12px; color: var(--muted);">Local Time</div>
+  <div id="tzDisplay" style="font-size: 12px; color: var(--muted);">Local Time</div>
+  <div id="rttDisplay" style="font-size: 12px; color: var(--muted);">RTT: -- ms</div>
+  <div id="driftDisplay" style="font-size: 12px; color: var(--muted);">Drift: -- ms</div>
   </div>
   <canvas id="analogClock" width="440" height="440" style="width:220px; height:220px;"></canvas>
 </main>
@@ -200,60 +202,59 @@ let wakeLock = null;
 // anchorPerfTime   = "what performance.now() was when we heard that"
 let anchorServerTime = Date.now();
 let anchorPerfTime = performance.now();
+let currentRTT = 0;
+let currentDrift = 0;
 
 async function syncTime() {
   try {
-    const t0 = performance.now();
+    const client_send_ms = Date.now();
+    const perf_send = performance.now();
+
     const r = await fetch("https://accurateclock.live-by-unix.workers.dev/", {
       cache: "no-store"
     });
-    const t1 = performance.now();
+
     const d = await r.json();
 
-    // Prefer server-reported latency if present, else fall back to RTT/2
-    const rtt = t1 - t0;
-    const oneWayLatency = (d.latency_ms && d.latency_ms >= 0)
-      ? d.latency_ms / 2
-      : rtt / 2;
+    const client_recv_ms = Date.now();
+    const perf_recv = performance.now();
 
-    // epoch_ms is the canonical server time
-    anchorServerTime = d.epoch_ms + oneWayLatency;
-    anchorPerfTime = t1;
+    const rtt = client_recv_ms - client_send_ms;
+
+    let drift = 0;
+    let correctedServerTime = d.epoch_ms + (rtt / 2);
+
+    if (typeof d.server_recv_ms === "number") {
+      const estimated_server_now =
+        d.server_recv_ms + (rtt / 2);
+
+      drift = estimated_server_now - client_recv_ms;
+      correctedServerTime = d.epoch_ms + (rtt / 2);
+    }
+
+    currentRTT = Math.round(rtt);
+    currentDrift = Math.round(drift);
+
+    document.getElementById("rttDisplay").textContent =
+      `RTT: ${currentRTT} ms`;
+
+    document.getElementById("driftDisplay").textContent =
+      `Drift: ${currentDrift >= 0 ? "+" : ""}${currentDrift} ms`;
+
+    anchorServerTime = correctedServerTime;
+    anchorPerfTime = perf_recv;
 
     if (bc) {
       bc.postMessage({
-        type: 'offset_share',
+        type: "offset_share",
         anchorServerTime,
         anchorPerfTime
       });
     }
   } catch (e) {
-    // stay silent on failure; we keep using last good anchor
+    console.error("Time sync failed:", e);
   }
 }
-
-function setupBC() {
-  bc.onmessage = (e) => {
-    if (e.data.type === 'offset_share') {
-      anchorServerTime = e.data.anchorServerTime;
-      anchorPerfTime = e.data.anchorPerfTime;
-    }
-  };
-}
-setupBC();
-
-window.addEventListener('pagehide', () => {
-  if (bc) { bc.close(); bc = null; }
-});
-
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') {
-    if (!bc) { bc = new BroadcastChannel('clock_sync'); setupBC(); }
-    syncTime();
-    requestWakeLock();
-  }
-});
-
 async function requestWakeLock() {
   try {
     if ('wakeLock' in navigator) {
