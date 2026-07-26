@@ -169,6 +169,7 @@
 </head>
 <body>
 <button class="theme-toggle" id="themeToggle">☾</button>
+<button class="theme-toggle" id="formatToggle" style="right:75px;">24H</button>
 <main class="wrapper">
   <h1 class="visually-hidden">AccurateClock - High Precision Online Atomic Clock</h1>
   
@@ -205,6 +206,7 @@ let anchorServerTime = Date.now();
 let anchorPerfTime = performance.now();
 let currentRTT = 0;
 let currentDrift = 0;
+let use24Hour = localStorage.getItem("timeFormat") !== "12";
 
 async function syncTime() {
   try {
