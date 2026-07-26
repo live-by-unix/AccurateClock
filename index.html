@@ -169,7 +169,7 @@
 </head>
 <body>
 <button class="theme-toggle" id="themeToggle">☾</button>
-<button class="theme-toggle" id="formatToggle" style="right:75px;">24H</button>
+<button class="theme-toggle" id="formatToggle" style="right:85px;">24H</button>
 <main class="wrapper">
   <h1 class="visually-hidden">AccurateClock - High Precision Online Atomic Clock</h1>
   
@@ -317,7 +317,7 @@ function clockLoop() {
     timeZone: selectedTz,
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false
+    hour12: !use24Hour
   });
 
   const parts = formatter.formatToParts(tzTime);
@@ -328,10 +328,17 @@ function clockLoop() {
   const micro = String(Math.floor((msPassedSinceSync % 1) * 1000000)).padStart(6, '0');
 
   document.getElementById('dateRow').textContent = `${p.year}-${p.month}-${p.day}`;
-  document.getElementById('timeRow').innerHTML =
-    `${p.hour}:${p.minute}:${p.second}.${ms} <span class="subnano">${micro}</span>`;
+  const suffix = p.dayPeriod ? ` ${p.dayPeriod}` : "";
+
+document.getElementById("timeRow").innerHTML =
+    `${p.hour}:${p.minute}:${p.second}.${ms}${suffix} <span class="subnano">${micro}</span>`;
   
-  drawAnalog(Number(p.hour), Number(p.minute), Number(p.second), tzTime.getMilliseconds());
+  drawAnalog(
+    tzTime.getHours(),
+    tzTime.getMinutes(),
+    tzTime.getSeconds(),
+    tzTime.getMilliseconds()
+);
   requestAnimationFrame(clockLoop);
 }
 
@@ -391,6 +398,22 @@ toggle.onclick = () => {
   toggle.textContent = isDark ? "☀" : "☾";
 
   localStorage.setItem("theme", isDark ? "dark" : "light");
+};
+const formatToggle = document.getElementById("formatToggle");
+
+// Restore saved time format
+formatToggle.textContent = use24Hour ? "24H" : "12H";
+
+// Toggle 12/24 hour mode
+formatToggle.onclick = () => {
+    use24Hour = !use24Hour;
+
+    formatToggle.textContent = use24Hour ? "24H" : "12H";
+
+    localStorage.setItem(
+        "timeFormat",
+        use24Hour ? "24" : "12"
+    );
 };
 
 syncTime();
