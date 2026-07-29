@@ -12,8 +12,6 @@ AccurateClock relies on cloudflare workers to deliver precision, as well as usin
 AccurateClock is pretty simple, but the clock emoji opens up a menu with all GMT time zones you can select.     
 Previews are shown below: 
 <img width="1919" height="968" alt="image" src="https://github.com/user-attachments/assets/dbdafeb2-272c-4d09-8f98-c1c4b3505053" />
-
-<img width="231" height="73" alt="image" src="https://github.com/user-attachments/assets/a492fdaf-cda6-4196-9c77-4674bb12a1ee" /> <-- the 18:17 you see is just HH:MM (24 hour)
  
 <img width="1919" height="970" alt="image" src="https://github.com/user-attachments/assets/dc213515-4bb8-4e82-b925-5780e9ef4618" />     
 
