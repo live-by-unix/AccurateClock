@@ -1,0 +1,97 @@
+# AccurateClock
+
+> AccurateClock is a fast, high-precision online clock that provides synchronized time with millisecond accuracy, global timezone support, and analog and digital clock displays.
+
+## Overview
+
+AccurateClock is a web-based time utility designed to display highly accurate synchronized time.
+
+The application includes:
+
+- High-precision time synchronization
+- Millisecond-level time display
+- Digital clock
+- Analog clock
+- Global timezone selection
+- GMT offset support
+- 12-hour and 24-hour time formats
+- Light and dark modes
+- Round-trip time (RTT) display
+- Clock drift estimation
+- Responsive design
+- Progressive Web App support
+
+## Main Website
+
+- [AccurateClock](https://accurateclock.pages.dev/)
+
+## Key Features
+
+### High-Precision Time
+
+AccurateClock synchronizes with a remote time service and compensates for network round-trip time to provide a more accurate estimate of the current time.
+
+### Global Timezones
+
+Users can select timezones using GMT offsets ranging from GMT-12 through GMT+14.
+
+### Analog and Digital Displays
+
+AccurateClock provides both a precise digital time display and a continuously updating analog clock.
+
+### Time Formats
+
+Users can switch between:
+
+- 12-hour time
+- 24-hour time
+
+### Network Information
+
+The application displays:
+
+- Network round-trip time (RTT)
+- Estimated clock drift
+
+### Appearance
+
+AccurateClock supports:
+
+- Light mode
+- Dark mode
+
+User preferences are saved locally in the browser.
+
+## Intended Use
+
+AccurateClock is useful for:
+
+- Checking the current time
+- Comparing time across GMT offsets
+- Monitoring clock synchronization
+- Viewing precise time measurements
+- Using a fullscreen clock display
+
+## Technology
+
+AccurateClock is a browser-based web application using:
+
+- HTML
+- CSS
+- JavaScript
+- Browser performance APIs
+- Internationalization APIs for timezone formatting
+- Canvas for the analog clock
+- Cloudflare-hosted time synchronization services
+
+## Important Notes
+
+AccurateClock is a time utility and should not be treated as a certified scientific, legal, financial, or official atomic time authority.
+
+Network conditions, device clocks, browser behavior, and server availability can affect synchronization accuracy.
+
+## Contact and Source Information
+
+For the latest version of AccurateClock, visit:
+
+https://accurateclock.pages.dev/
