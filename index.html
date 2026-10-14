@@ -402,13 +402,13 @@ toggle.onclick = () => {
 const formatToggle = document.getElementById("formatToggle");
 
 // Restore saved time format
-formatToggle.textContent = use24Hour ? "24H" : "12H";
+formatToggle.textContent = use24Hour ? "12H" : "24H";
 
 // Toggle 12/24 hour mode
 formatToggle.onclick = () => {
     use24Hour = !use24Hour;
 
-    formatToggle.textContent = use24Hour ? "24H" : "12H";
+    formatToggle.textContent = use24Hour ? "12H" : "24H";
 
     localStorage.setItem(
         "timeFormat",
