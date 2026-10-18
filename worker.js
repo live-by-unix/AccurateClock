@@ -1,91 +1,101 @@
-// Ultra-accurate Cloudflare Worker clock
-// - Hybrid monotonic + edge UTC
-// - Microsecond internal precision
-// - Drift correction over long runtimes
-// - Dynamic RTT measurement (no presets)
-// JSON: epoch_ms, iso_utc, region, version (unchanged keys)
+// AccurateClock Cloudflare Worker
+// Hybrid monotonic UTC clock with integer microsecond timestamps.
 
-let base_epoch = Date.now();
-let base_perf = performance.now();
-let last_resync = base_epoch;
+let baseEpochUs = Date.now() * 1000;
+let basePerf = performance.now();
+let lastResyncMs = Date.now();
 
-const RESYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-const DRIFT_THRESHOLD_MS = 1;             // resync if >1ms drift
+const RESYNC_INTERVAL_MS = 5 * 60 * 1000;
+const DRIFT_THRESHOLD_US = 1000;
 
-function getHighPrecisionEpoch(env) {
-  // Prefer high-precision clock if available (microseconds)
-  if (env && env.CLOCK && typeof env.CLOCK.now === "function") {
-    const us = env.CLOCK.now();          // epoch in microseconds
-    return us / 1000;                    // convert to milliseconds (float)
+function getEpochUs(env) {
+  if (env?.CLOCK && typeof env.CLOCK.now === "function") {
+    const value = env.CLOCK.now();
+
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return Math.round(value);
+    }
+
+    if (typeof value === "bigint") {
+      return Number(value);
+    }
   }
 
-  // Hybrid monotonic UTC: base_epoch + (performance.now() - base_perf)
-  const perf_now = performance.now();
-  let epoch_ms = base_epoch + (perf_now - base_perf);
+  const perfNow = performance.now();
+  const wallNowMs = Date.now();
 
-  // Drift correction over long runtimes
-  const wall_now = Date.now();
-  const since_resync = wall_now - last_resync;
-  const drift = wall_now - epoch_ms;
+  let epochUs = baseEpochUs + (perfNow - basePerf) * 1000;
 
-  if (since_resync > RESYNC_INTERVAL_MS || Math.abs(drift) > DRIFT_THRESHOLD_MS) {
-    // Re-anchor to wall clock, keep monotonic stability
-    base_epoch = wall_now;
-    base_perf = perf_now;
-    last_resync = wall_now;
-    epoch_ms = base_epoch + (perf_now - base_perf);
+  const wallNowUs = wallNowMs * 1000;
+  const sinceResyncMs = wallNowMs - lastResyncMs;
+  const driftUs = wallNowUs - epochUs;
+
+  if (
+    sinceResyncMs >= RESYNC_INTERVAL_MS ||
+    Math.abs(driftUs) > DRIFT_THRESHOLD_US
+  ) {
+    baseEpochUs = wallNowUs;
+    basePerf = perfNow;
+    lastResyncMs = wallNowMs;
+    epochUs = baseEpochUs;
   }
 
-  return epoch_ms;
+  return Math.round(epochUs);
 }
 
 export default {
-  async fetch(request, env, ctx) {
+  async fetch(request, env) {
     const headers = {
-      "Content-Type": "application/json",
+      "Content-Type": "application/json; charset=utf-8",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Methods": "GET, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
-      "Cache-Control": "no-store, no-cache, must-revalidate"
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
+      "Expires": "0"
     };
 
-    // 1. CORS preflight
     if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers });
-    }
-
-    // 2. Only allow GET
-    if (request.method !== "GET") {
-      return new Response(JSON.stringify({ error: "Method not allowed" }), {
-        status: 405,
+      return new Response(null, {
+        status: 204,
         headers
       });
     }
 
-    // 3. Tighten timing window to reduce jitter
+    if (request.method !== "GET") {
+      return new Response(
+        JSON.stringify({ error: "Method not allowed" }),
+        {
+          status: 405,
+          headers
+        }
+      );
+    }
+
     await scheduler.wait(0);
 
-    // 4. High-precision epoch (float ms, microsecond-capable internally)
-    let epoch_ms = getHighPrecisionEpoch(env);
+    const epochUs = getEpochUs(env);
+    const serverRecvUs = Date.now() * 1000;
 
-    // 5. Region info
-    const region = request.cf?.colo || "UNKNOWN";
-
-    // 6. RTT measurement: capture server receipt time
-    const server_recv_ms = Date.now();
-
-    // 7. Final JSON (same shape, ms resolution + RTT field)
-    const epoch_ms_int = Math.floor(epoch_ms);
+    const epochMs = Math.floor(epochUs / 1000);
+    const serverRecvMs = Math.floor(serverRecvUs / 1000);
 
     return new Response(
       JSON.stringify({
-        epoch_ms: epoch_ms_int,
-        iso_utc: new Date(epoch_ms).toISOString(),
-        region,
-        version: "4",
-        server_recv_ms // client can use this for RTT calculation
+        epoch_us: epochUs,
+        server_recv_us: serverRecvUs,
+        iso_utc: new Date(epochUs / 1000).toISOString(),
+        region: request.cf?.colo || "UNKNOWN",
+        version: "5",
+
+        // Backward-compatible millisecond fields.
+        epoch_ms: epochMs,
+        server_recv_ms: serverRecvMs
       }),
-      { status: 200, headers }
+      {
+        status: 200,
+        headers
+      }
     );
   }
 };
